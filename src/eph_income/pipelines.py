@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import HistGradientBoostingRegressor
@@ -12,7 +13,29 @@ from sklearn.impute import SimpleImputer
 from sklearn.linear_model import Lasso, LinearRegression, Ridge
 from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer
+
+
+def _numeric_writeable_array(X):
+    return np.array(X, dtype=float, copy=True)
+
+
+def _categorical_writeable_array(X):
+    return np.array(X, dtype=object, copy=True)
+
+
+numeric_writeable_copy = FunctionTransformer(
+    _numeric_writeable_array,
+    validate=False,
+    feature_names_out="one-to-one",
+)
+
+categorical_writeable_copy = FunctionTransformer(
+    _categorical_writeable_array,
+    validate=False,
+    feature_names_out="one-to-one",
+)
+
 
 MODEL_DISPLAY_NAMES = {
     "linear_regression": "LinearRegression",
@@ -58,31 +81,27 @@ def make_preprocessor(
     """Create preprocessing inside an sklearn pipeline."""
 
     numeric_columns, categorical_columns = infer_feature_types(features)
-    drop_first_categorical_columns = drop_first_categorical_columns or set()
-    categorical_drop_first_columns = [
-        column for column in categorical_columns if column in drop_first_categorical_columns
+    numeric_steps: list[tuple[str, Any]] = [
+        ("copy", numeric_writeable_copy),
+        ("imputer", SimpleImputer(strategy="median", copy=True)),
     ]
-    categorical_full_columns = [
-        column for column in categorical_columns if column not in drop_first_categorical_columns
-    ]
-
-    numeric_steps: list[tuple[str, Any]] = [("imputer", SimpleImputer(strategy="median"))]
     if scale_numeric:
         numeric_steps.append(("scaler", StandardScaler()))
     numeric_pipe = Pipeline(numeric_steps)
-
-    transformers: list[tuple[str, Pipeline, list[str]]] = [("num", numeric_pipe, numeric_columns)]
-    if categorical_full_columns:
-        transformers.append(("cat", _categorical_pipeline(drop_first=False), categorical_full_columns))
-    if categorical_drop_first_columns:
-        transformers.append(
-            (
-                "cat_drop_first",
-                _categorical_pipeline(drop_first=True),
-                categorical_drop_first_columns,
-            )
-        )
-    return ColumnTransformer(transformers, remainder="drop")
+    categorical_pipe = Pipeline(
+        [
+            ("copy", categorical_writeable_copy),
+            ("imputer", SimpleImputer(strategy="most_frequent", copy=True)),
+            ("ohe", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+        ]
+    )
+    return ColumnTransformer(
+        [
+            ("num", numeric_pipe, numeric_columns),
+            ("cat", categorical_pipe, categorical_columns),
+        ],
+        remainder="drop",
+    )
 
 
 def make_model_pipeline(
