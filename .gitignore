@@ -1,6 +1,6 @@
 # data
 data/raw/
-data/training/
+# data/training/
 data/processed/
 *.csv
 *.parquet
