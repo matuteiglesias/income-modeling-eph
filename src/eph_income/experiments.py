@@ -202,6 +202,7 @@ def _write_training_frame_sample(
         "training_frame_sample_metadata": metadata_path,
     }
 
+
 def _evaluate(model: Any, features: pd.DataFrame, target: pd.Series) -> dict[str, float]:
     predictions = model.predict(features)
     return {

@@ -64,6 +64,9 @@ models:
       reg__batch_size: [64]
       reg__max_iter: [100]
 
+artifacts:
+  training_frame_sample_n: 10
+
 outputs:
   model_comparison: reports/tables/model_comparison_debug.csv
   experiment_card: reports/experiment_cards/debug_experiment.json

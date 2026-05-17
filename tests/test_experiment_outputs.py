@@ -218,6 +218,7 @@ def test_baseline_config_enables_all_state6_models() -> None:
         "sample_n": None,
         "allow_full_run": False,
     }
+    assert experiment_config["artifacts"] == {"training_frame_sample_n": 10}
     assert set(enabled_model_configs(experiment_config)) == {
         "linear_regression",
         "ridge",
@@ -225,6 +226,13 @@ def test_baseline_config_enables_all_state6_models() -> None:
         "hist_gradient_boosting",
         "mlp",
     }
+
+
+def test_debug_config_declares_training_frame_sample_artifact() -> None:
+    experiment_config = load_experiment_config("configs/experiment_debug.yaml")
+
+    assert experiment_config["runtime"]["mode"] == "debug"
+    assert experiment_config["artifacts"] == {"training_frame_sample_n": 10}
 
 
 def test_full_runtime_requires_explicit_allowance(tmp_path) -> None:
