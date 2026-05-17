@@ -1,6 +1,6 @@
 .PHONY: help install validate lint test build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep report build-diagnostics all
 
-PYTHON ?= python
+PYTHON ?= python3
 EXPERIMENT_CONFIG ?= configs/experiment_baseline.yaml
 FEATURE_CONTRACT ?= configs/feature_contract.yaml
 SPLIT ?= test

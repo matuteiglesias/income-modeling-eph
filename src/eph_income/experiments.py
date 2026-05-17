@@ -798,11 +798,19 @@ def run_experiment(
 
     rows: list[dict[str, Any]] = []
     predictions_by_split: dict[str, list[pd.DataFrame]] = {"test": [], "validation": []}
+
+
     for model_key, model_config in enabled_model_configs(experiment_config).items():
         model_name = MODEL_DISPLAY_NAMES.get(model_key, model_key)
         pipeline = make_model_pipeline(model_key, train[feature_columns], random_seed)
         grid = model_config.get("grid", {})
+
+
         return_train_score = bool(experiment_config.get("cv", {}).get("return_train_score", False))
+        observability = experiment_config.get("observability", {})
+        sklearn_verbose = int(observability.get("sklearn_verbose", 0))
+        heartbeat_interval = float(observability.get("heartbeat_seconds", 10))
+
         search = GridSearchCV(
             pipeline,
             grid,
@@ -811,6 +819,7 @@ def run_experiment(
             refit=True,
             n_jobs=None,
             return_train_score=return_train_score,
+            verbose=sklearn_verbose,
         )
         grid_configurations = grid_configuration_count(grid)
         log_model_fit_start(
@@ -820,6 +829,8 @@ def run_experiment(
             cv_folds=cv_folds,
             train_rows=len(train),
             feature_count=len(feature_columns),
+            sklearn_verbose=sklearn_verbose,
+            heartbeat_interval=heartbeat_interval,
         )
         start = time.perf_counter()
         with heartbeat(
@@ -914,6 +925,8 @@ def run_experiment(
                 "fit_time_seconds": float(fit_time),
             }
         )
+
+
 
     comparison = pd.DataFrame(rows)
     _validate_feature_count_consistency(comparison)

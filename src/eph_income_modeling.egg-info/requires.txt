@@ -1,0 +1,11 @@
+pandas
+numpy
+scikit-learn
+matplotlib
+pyyaml
+pyarrow
+joblib
+
+[dev]
+pytest
+ruff

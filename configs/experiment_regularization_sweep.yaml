@@ -4,7 +4,7 @@ experiment:
 
 runtime:
   mode: full
-  sample_n: null
+  sample_n: 50000
   allow_full_run: false
 
 data:
@@ -19,7 +19,7 @@ split:
   random_state: 42
 
 cv:
-  folds: 5
+  folds: 3
   scoring: r2
   return_train_score: true
 

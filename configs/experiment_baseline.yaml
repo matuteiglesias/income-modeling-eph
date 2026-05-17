@@ -24,7 +24,7 @@ split:
   random_state: 42
 
 cv:
-  folds: 5
+  folds: 3
   scoring: r2
 
 models:

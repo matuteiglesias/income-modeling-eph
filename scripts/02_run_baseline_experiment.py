@@ -53,7 +53,7 @@ def main() -> None:
     if args.heartbeat_interval_seconds is not None:
         experiment_config = dict(experiment_config)
         runtime = dict(experiment_config.get("runtime", {}))
-        runtime["heartbeat_interval_seconds"] = args.heartbeat_interval_seconds
+        runtime["heartbeat_seconds"] = args.heartbeat_interval_seconds
         experiment_config["runtime"] = runtime
     feature_contract = load_feature_contract(args.feature_contract)
     comparison, card = run_experiment(

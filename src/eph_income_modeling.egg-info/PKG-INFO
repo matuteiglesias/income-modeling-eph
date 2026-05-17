@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: eph-income-modeling
+Version: 0.1.0
+Summary: Spec-driven reproducible experiments for EPH income prediction
+Requires-Python: >=3.10
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: scikit-learn
+Requires-Dist: matplotlib
+Requires-Dist: pyyaml
+Requires-Dist: pyarrow
+Requires-Dist: joblib
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
