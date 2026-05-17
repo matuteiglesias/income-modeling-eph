@@ -240,8 +240,15 @@ def build_modeling_dataset(
 
     dataset_path = resolve_project_path(output_dataset_path)
     metadata_path = resolve_project_path(output_metadata_path)
+    input_files = {year: str(path) for year, path in _configured_input_files(experiment_config).items()}
     metadata: dict[str, Any] = {
-        "input_files": {year: str(path) for year, path in _configured_input_files(experiment_config).items()},
+        "input_files": input_files,
+        "upstream_input_files": input_files,
+        "input_artifact_type": "annual_preprocessed_eph_inputs",
+        "input_artifact_note": (
+            "These files are fixed annual preprocessed EPH-derived inputs from an upstream "
+            "preprocessing pipeline, not the train subset of a train/test split."
+        ),
         "row_counts_by_file": row_counts_by_file,
         "row_count_before_filters": row_count_before_filters,
         "row_count_after_filters": int(len(modeling_dataset)),
@@ -253,6 +260,7 @@ def build_modeling_dataset(
             "dropped_columns_by_year": harmonization_drops,
         },
         "excluded_forbidden_predictors": excluded_forbidden,
+        "excluded_predictors_by_reason": feature_contract.get("forbidden_predictors", {}),
         "forbidden_predictor_check_passed": forbidden_check_passed,
         "processed_dataset": str(dataset_path),
         "metadata": str(metadata_path),

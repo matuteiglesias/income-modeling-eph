@@ -9,7 +9,7 @@ import pandas as pd
 from eph_income.config import load_feature_contract
 from eph_income.dataset import build_modeling_dataset
 
-TRAINING_DIR = Path("data/training")
+INPUT_DIR = Path("data/annual_preprocessed_inputs")
 
 
 def _write_training_sample(source: Path, destination: Path, *, nrows: int) -> pd.DataFrame:
@@ -28,18 +28,18 @@ def _add_missing_prop_case(sample: pd.DataFrame) -> pd.DataFrame:
 
 
 def test_build_modeling_dataset_filters_training_samples_and_writes_metadata(tmp_path) -> None:
-    file_2022 = tmp_path / "EPHARG_train_22_sample.csv"
-    file_2024 = tmp_path / "EPHARG_train_24_sample.csv"
+    file_2022 = tmp_path / "EPHARG_annual_input_22_sample.csv"
+    file_2024 = tmp_path / "EPHARG_annual_input_24_sample.csv"
     output_dataset = tmp_path / "processed" / "modeling_dataset.parquet"
     output_metadata = tmp_path / "processed" / "dataset_metadata.json"
 
     sample_2022 = _write_training_sample(
-        TRAINING_DIR / "EPHARG_train_22.csv", file_2022, nrows=50
+        INPUT_DIR / "EPHARG_annual_input_22.csv", file_2022, nrows=50
     )
     sample_2022 = _add_missing_prop_case(sample_2022)
     sample_2022.to_csv(file_2022, index=False)
     sample_2024 = _write_training_sample(
-        TRAINING_DIR / "EPHARG_train_24.csv", file_2024, nrows=20
+        INPUT_DIR / "EPHARG_annual_input_24.csv", file_2024, nrows=20
     )
 
     experiment_config = {
@@ -117,3 +117,5 @@ def test_build_modeling_dataset_filters_training_samples_and_writes_metadata(tmp
         "require_not_missing": ["PROP"],
     }
     assert written_metadata["forbidden_predictor_check_passed"] is True
+    assert written_metadata["input_artifact_type"] == "annual_preprocessed_eph_inputs"
+    assert written_metadata["upstream_input_files"] == written_metadata["input_files"]

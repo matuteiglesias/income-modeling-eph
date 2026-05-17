@@ -1,8 +1,8 @@
-# Spec 001: Baseline Income Prediction on EPH Training Data
+# Spec 001: Baseline Income Prediction on EPH Annual Preprocessed Inputs
 
 ## Purpose
 
-Build a reproducible baseline experiment for predicting individual income using EPH-derived training files.
+Build a reproducible baseline experiment for predicting individual income using EPH-derived annual preprocessed input files.
 
 The goal is not to produce the most optimized model. The goal is to establish a scientifically auditable baseline that reproduces and hardens the legacy student experiment.
 
@@ -14,12 +14,12 @@ How well do linear, regularized, tree-boosting, and neural-network models predic
 
 Expected files:
 
-- `data/training/EPHARG_train_22.csv`
-- `data/training/EPHARG_train_23.csv`
-- `data/training/EPHARG_train_24.csv`
-- `data/training/EPHARG_train_25.csv`
+- `data/annual_preprocessed_inputs/EPHARG_annual_input_22.csv`
+- `data/annual_preprocessed_inputs/EPHARG_annual_input_23.csv`
+- `data/annual_preprocessed_inputs/EPHARG_annual_input_24.csv`
+- `data/annual_preprocessed_inputs/EPHARG_annual_input_25.csv`
 
-These are treated as processed training inputs, not raw INDEC microdata.
+These are annual preprocessed EPH-derived inputs produced by an upstream preprocessing pipeline, not raw INDEC microdata and not the train subset of a train/test split. The historical upstream filenames used the word "train"; this repo treats the files as fixed upstream artifacts.
 
 ## Target
 
@@ -38,7 +38,8 @@ Inclusion criteria:
 The following variables must not enter the feature matrix:
 
 - target and direct transformations: `P47T`, `logP47T`
-- identifiers: `CODUSU`, `Q`
+- identifiers: `CODUSU`
+- derived temporal/date variables excluded from X: `Q`
 - income components: `P21`, `T_VI`, `V12_M`, `V2_M`, `V3_M`, `V5_M`, `TOT_P12`, `PP08D1`
 - transformed income components: `logP21`, `logT_VI`, `logV12_M`, `logV2_M`, `logV3_M`, `logV5_M`, `logTOT_P12`, `logPP08D1`
 - income-source indicators: `INGRESO_NLB`, `INGRESO_JUB`, `INGRESO_SBS`

@@ -13,6 +13,7 @@ inclusion:
 forbidden_predictors:
   identifiers:
     - CODUSU
+  temporal_derived:
     - Q
   target:
     - P47T

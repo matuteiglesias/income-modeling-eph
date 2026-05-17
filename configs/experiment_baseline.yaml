@@ -4,10 +4,10 @@ experiment:
 
 data:
   input_files:
-    "2022": data/training/EPHARG_train_22.csv
-    "2023": data/training/EPHARG_train_23.csv
-    "2024": data/training/EPHARG_train_24.csv
-    "2025": data/training/EPHARG_train_25.csv
+    "2022": data/annual_preprocessed_inputs/EPHARG_annual_input_22.csv
+    "2023": data/annual_preprocessed_inputs/EPHARG_annual_input_23.csv
+    "2024": data/annual_preprocessed_inputs/EPHARG_annual_input_24.csv
+    "2025": data/annual_preprocessed_inputs/EPHARG_annual_input_25.csv
   processed_dataset: data/processed/modeling_dataset.parquet
   split_assignments: data/processed/split_assignments.csv
 

@@ -26,10 +26,13 @@ def test_experiment_config_yaml_loads() -> None:
 
 
 def test_forbidden_predictor_groups_flatten_correctly() -> None:
-    forbidden = get_forbidden_predictors(load_feature_contract())
+    contract = load_feature_contract()
+    forbidden = get_forbidden_predictors(contract)
 
     assert {"P47T", "logP47T", "P21", "CODUSU"}.issubset(forbidden)
     assert {"Q", "T_VI", "logTOT_P12", "INGRESO_SBS"}.issubset(forbidden)
+    assert contract["forbidden_predictors"]["identifiers"] == ["CODUSU"]
+    assert contract["forbidden_predictors"]["temporal_derived"] == ["Q"]
 
 
 def test_assert_no_forbidden_predictors_rejects_p47t() -> None:
