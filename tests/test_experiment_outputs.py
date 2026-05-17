@@ -399,10 +399,10 @@ def test_hgb_sweep_config_disables_early_stopping_for_interpretable_max_iter() -
     assert experiment_config["cv"] == {"folds": 3, "scoring": "r2", "return_train_score": True}
     assert set(enabled_model_configs(experiment_config)) == {"hist_gradient_boosting"}
     hgb_grid = experiment_config["models"]["hist_gradient_boosting"]["grid"]
-    assert hgb_grid["reg__learning_rate"] == [0.05, 0.1, 0.2]
+    assert hgb_grid["reg__learning_rate"] == [0.03, 0.05, 0.075, 0.1]
     assert hgb_grid["reg__max_iter"] == [100, 200, 400]
-    assert hgb_grid["reg__max_leaf_nodes"] == [31, 127]
-    assert hgb_grid["reg__min_samples_leaf"] == [20, 100]
+    assert hgb_grid["reg__max_leaf_nodes"] == [15, 31, 63]
+    assert hgb_grid["reg__min_samples_leaf"] == [50, 100, 200]
     assert hgb_grid["reg__l2_regularization"] == [0.0, 0.01]
     assert hgb_grid["reg__early_stopping"] == [False]
     assert "exact number of boosting iterations" in experiment_config["scientific_notes"]["early_stopping_decision"]
@@ -492,3 +492,44 @@ def test_hgb_experiment_writes_hgb_specific_diagnostics_and_plots(tmp_path) -> N
         "hgb_train_vs_cv_r2_top_configs.png",
     }
     assert expected_plots.issubset({path.name for path in (run_dir / "plots" / "hgb").glob("*.png")})
+
+
+
+def test_targeted_hgb_sweep_configs_declare_single_question_grids() -> None:
+    lr_iter = load_experiment_config("configs/experiment_hgb_lr_iter_sweep.yaml")
+    assert lr_iter["experiment"]["id"] == "hgb_lr_iter_sweep_v1"
+    assert lr_iter["runtime"]["sample_n"] == 100000
+    assert lr_iter["cv"] == {"folds": 3, "scoring": "r2", "return_train_score": True}
+    assert lr_iter["diagnostics"] == {
+        "sweep_type": "hgb_lr_iter",
+        "primary_param": "max_iter",
+        "group_param": "learning_rate",
+    }
+    assert set(enabled_model_configs(lr_iter)) == {"hist_gradient_boosting"}
+    lr_grid = lr_iter["models"]["hist_gradient_boosting"]["grid"]
+    assert lr_grid["reg__learning_rate"] == [0.02, 0.03, 0.05, 0.075, 0.1]
+    assert lr_grid["reg__max_iter"] == [100, 200, 400, 600]
+    assert lr_grid["reg__max_leaf_nodes"] == [31]
+    assert lr_grid["reg__min_samples_leaf"] == [100]
+    assert lr_grid["reg__l2_regularization"] == [0.0]
+    assert lr_grid["reg__early_stopping"] == [False]
+
+    leaf = load_experiment_config("configs/experiment_hgb_leaf_capacity_sweep.yaml")
+    leaf_grid = leaf["models"]["hist_gradient_boosting"]["grid"]
+    assert leaf["experiment"]["id"] == "hgb_leaf_capacity_sweep_v1"
+    assert leaf["diagnostics"] == {"sweep_type": "hgb_single_param", "primary_param": "max_leaf_nodes"}
+    assert leaf_grid["reg__max_leaf_nodes"] == [7, 15, 23, 31, 47, 63, 95, 127]
+    assert leaf_grid["reg__learning_rate"] == [0.05]
+    assert leaf_grid["reg__max_iter"] == [200]
+
+    min_leaf = load_experiment_config("configs/experiment_hgb_min_leaf_sweep.yaml")
+    min_leaf_grid = min_leaf["models"]["hist_gradient_boosting"]["grid"]
+    assert min_leaf["experiment"]["id"] == "hgb_min_leaf_sweep_v1"
+    assert min_leaf["diagnostics"] == {"sweep_type": "hgb_single_param", "primary_param": "min_samples_leaf"}
+    assert min_leaf_grid["reg__min_samples_leaf"] == [20, 30, 50, 75, 100, 150, 200, 300]
+
+    l2 = load_experiment_config("configs/experiment_hgb_l2_sweep.yaml")
+    l2_grid = l2["models"]["hist_gradient_boosting"]["grid"]
+    assert l2["experiment"]["id"] == "hgb_l2_sweep_v1"
+    assert l2["diagnostics"] == {"sweep_type": "hgb_single_param", "primary_param": "l2_regularization"}
+    assert l2_grid["reg__l2_regularization"] == [0.0, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0]

@@ -1,4 +1,4 @@
-.PHONY: help install validate lint test build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep report build-diagnostics all
+.PHONY: help install validate lint test build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep report build-diagnostics all
 
 PYTHON ?= python3
 EXPERIMENT_CONFIG ?= configs/experiment_baseline.yaml
@@ -18,6 +18,10 @@ help:
 	@echo "  make run-regularization-sweep    Run Ridge/Lasso regularization sweep diagnostics"
 	@echo "  make run-hgb-debug               Run Ridge reference + small HGB debug experiment"
 	@echo "  make run-hgb-sweep               Run guarded HGB-only medium sweep"
+	@echo "  make run-hgb-lr-iter-sweep       Run targeted HGB learning-rate/max-iter sweep"
+	@echo "  make run-hgb-leaf-capacity-sweep Run targeted HGB leaf-capacity sweep"
+	@echo "  make run-hgb-min-leaf-sweep      Run targeted HGB minimum-leaf-size sweep"
+	@echo "  make run-hgb-l2-sweep            Run targeted HGB L2-regularization sweep"
 	@echo "  make report                      Build thesis-ready report artifacts from saved outputs"
 	@echo "  make build-diagnostics           Build diagnostics for RUN_DIR=reports/runs/<run_id> [SPLIT=test]"
 	@echo "  make all                         Build dataset, run baseline, and build report"
@@ -57,6 +61,18 @@ run-hgb-debug:
 
 run-hgb-sweep:
 	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_sweep.yaml ALLOW_FULL_RUN=1
+
+run-hgb-lr-iter-sweep:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_lr_iter_sweep.yaml ALLOW_FULL_RUN=1
+
+run-hgb-leaf-capacity-sweep:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_leaf_capacity_sweep.yaml ALLOW_FULL_RUN=1
+
+run-hgb-min-leaf-sweep:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_min_leaf_sweep.yaml ALLOW_FULL_RUN=1
+
+run-hgb-l2-sweep:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_l2_sweep.yaml ALLOW_FULL_RUN=1
 
 report:
 	$(PYTHON) scripts/03_build_report_artifacts.py

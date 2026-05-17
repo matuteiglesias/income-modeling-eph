@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import itertools
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +20,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np
 import pandas as pd
+import yaml
 
 REQUIRED_PREDICTION_COLUMNS = {
     "run_id",
@@ -432,6 +433,376 @@ def _save_alpha_curve(run_dir: Path, model_name: str, output_path: Path) -> str 
     return None
 
 
+HGB_SWEEP_PARAM_COLUMNS = [
+    "learning_rate",
+    "max_iter",
+    "max_leaf_nodes",
+    "max_depth",
+    "min_samples_leaf",
+    "l2_regularization",
+    "early_stopping",
+]
+
+
+def _read_config_used(run_dir: Path) -> dict[str, Any]:
+    path = run_dir / "config_used.yaml"
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def _hgb_cv_file(run_dir: Path) -> Path | None:
+    return _find_cv_file(run_dir, "HistGradientBoostingRegressor")
+
+
+def _cv_param_value(row: pd.Series, param_name: str) -> Any:
+    for column in [f"param_reg__{param_name}", f"reg__{param_name}", param_name]:
+        if column in row.index and pd.notna(row[column]):
+            return row[column]
+    return pd.NA
+
+
+def _hgb_sweep_summary(cv_results: pd.DataFrame, *, run_id: str | None = None) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for _, row in cv_results.iterrows():
+        mean_train_score = row.get("mean_train_score", np.nan)
+        mean_test_score = row.get("mean_test_score", np.nan)
+        result = {
+            "run_id": row.get("run_id", run_id),
+            "model": row.get("model", "HistGradientBoostingRegressor"),
+        }
+        for param in HGB_SWEEP_PARAM_COLUMNS:
+            result[param] = _cv_param_value(row, param)
+        result.update(
+            {
+                "mean_train_score": float(mean_train_score) if pd.notna(mean_train_score) else np.nan,
+                "mean_test_score": float(mean_test_score) if pd.notna(mean_test_score) else np.nan,
+                "std_test_score": float(row.get("std_test_score", np.nan)),
+                "overfit_gap": (
+                    float(mean_train_score - mean_test_score)
+                    if pd.notna(mean_train_score) and pd.notna(mean_test_score)
+                    else np.nan
+                ),
+                "mean_fit_time": float(row.get("mean_fit_time", np.nan)),
+                "rank_test_score": int(row.get("rank_test_score", 0)) if pd.notna(row.get("rank_test_score", np.nan)) else pd.NA,
+            }
+        )
+        rows.append(result)
+    summary = pd.DataFrame(rows)
+    if "rank_test_score" in summary.columns:
+        summary = summary.sort_values("rank_test_score", na_position="last")
+    return summary.reset_index(drop=True)
+
+
+def _to_numeric_frame(frame: pd.DataFrame, columns: Iterable[str]) -> pd.DataFrame:
+    out = frame.copy()
+    for column in columns:
+        if column in out.columns:
+            out[column] = pd.to_numeric(out[column], errors="coerce")
+    return out
+
+
+def _aggregate_sweep_curve(summary: pd.DataFrame, primary_param: str, group_param: str | None = None) -> pd.DataFrame:
+    required = [primary_param, "mean_test_score"]
+    if group_param:
+        required.append(group_param)
+    optional = ["mean_train_score", "overfit_gap", "mean_fit_time", "std_test_score"]
+    numeric = _to_numeric_frame(summary, [*required, *optional])
+    numeric = numeric.dropna(subset=required)
+    if numeric.empty:
+        return numeric
+    group_cols = [group_param, primary_param] if group_param else [primary_param]
+    agg = numeric.groupby(group_cols, as_index=False).agg(
+        mean_cv_r2=("mean_test_score", "mean"),
+        std_cv_r2=("std_test_score", "mean"),
+        mean_train_r2=("mean_train_score", "mean"),
+        mean_overfit_gap=("overfit_gap", "mean"),
+        mean_fit_time=("mean_fit_time", "mean"),
+    )
+    return agg.sort_values(group_cols).reset_index(drop=True)
+
+
+def _use_log_scale_for_param(frame: pd.DataFrame, param: str) -> bool:
+    if param != "l2_regularization" or param not in frame.columns:
+        return False
+    values = pd.to_numeric(frame[param], errors="coerce").dropna()
+    return bool(not values.empty and (values > 0).all())
+
+
+def _plot_grouped_errorbar(
+    curve: pd.DataFrame,
+    *,
+    primary_param: str,
+    group_param: str | None,
+    y_column: str,
+    ylabel: str,
+    title: str,
+    output_path: Path,
+    error_column: str | None = None,
+    zero_line: bool = False,
+) -> None:
+    if curve.empty or y_column not in curve.columns:
+        return
+    fig, ax = plt.subplots(figsize=(8, 5))
+    groups = curve.groupby(group_param, dropna=False) if group_param else [(None, curve)]
+    for group_value, group in groups:
+        group = group.sort_values(primary_param)
+        yerr = None
+        if error_column and error_column in group.columns:
+            yerr = pd.to_numeric(group[error_column], errors="coerce").fillna(0.0)
+        label = None if group_param is None else f"{group_param}={group_value}"
+        ax.errorbar(
+            group[primary_param],
+            group[y_column],
+            yerr=yerr,
+            marker="o",
+            capsize=3 if yerr is not None else 0,
+            label=label,
+        )
+    if zero_line:
+        ax.axhline(0, linestyle="--", linewidth=1)
+    if _use_log_scale_for_param(curve, primary_param):
+        ax.set_xscale("log")
+    ax.set_xlabel(primary_param)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    if group_param:
+        ax.legend(title=group_param)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+
+
+def _plot_train_vs_cv(
+    curve: pd.DataFrame, *, primary_param: str, group_param: str | None, output_path: Path
+) -> None:
+    if curve.empty or "mean_train_r2" not in curve.columns:
+        return
+    fig, ax = plt.subplots(figsize=(8, 5))
+    groups = curve.groupby(group_param, dropna=False) if group_param else [(None, curve)]
+    for group_value, group in groups:
+        group = group.sort_values(primary_param)
+        suffix = "" if group_param is None else f" ({group_param}={group_value})"
+        ax.plot(group[primary_param], group["mean_train_r2"], marker="o", linestyle="--", label=f"Train R²{suffix}")
+        ax.errorbar(
+            group[primary_param],
+            group["mean_cv_r2"],
+            yerr=group.get("std_cv_r2", pd.Series(index=group.index, dtype=float)).fillna(0.0),
+            marker="o",
+            capsize=3,
+            label=f"CV R²{suffix}",
+        )
+    if _use_log_scale_for_param(curve, primary_param):
+        ax.set_xscale("log")
+    ax.set_xlabel(primary_param)
+    ax.set_ylabel("R²")
+    ax.set_title("HGB train vs CV R²")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+
+
+def _format_config(row: pd.Series) -> str:
+    parts = []
+    for param in HGB_SWEEP_PARAM_COLUMNS:
+        if param in row.index and pd.notna(row[param]):
+            parts.append(f"{param}={row[param]}")
+    return ", ".join(parts) if parts else "unavailable"
+
+
+def _simplest_within(summary: pd.DataFrame, best_score: float, tolerance: float = 0.002) -> pd.Series:
+    candidates = summary[pd.to_numeric(summary["mean_test_score"], errors="coerce") >= best_score - tolerance].copy()
+    if candidates.empty:
+        return summary.iloc[0]
+    for column, default in [("max_iter", np.inf), ("max_leaf_nodes", np.inf), ("min_samples_leaf", -np.inf), ("l2_regularization", np.inf)]:
+        if column in candidates.columns:
+            candidates[f"_sort_{column}"] = pd.to_numeric(candidates[column], errors="coerce").fillna(default)
+    ascending = []
+    sort_cols = []
+    for column in ["_sort_max_iter", "_sort_max_leaf_nodes", "_sort_min_samples_leaf", "_sort_l2_regularization"]:
+        if column in candidates.columns:
+            sort_cols.append(column)
+            ascending.append(False if column == "_sort_min_samples_leaf" else True)
+    sort_cols.append("mean_test_score")
+    ascending.append(False)
+    return candidates.sort_values(sort_cols, ascending=ascending).iloc[0]
+
+
+def _recommended_region(summary: pd.DataFrame, best_score: float, tolerance: float = 0.002) -> str:
+    near = summary[pd.to_numeric(summary["mean_test_score"], errors="coerce") >= best_score - tolerance].copy()
+    if near.empty:
+        near = summary.head(1).copy()
+    pieces: list[str] = []
+    for param in ["learning_rate", "max_iter", "max_leaf_nodes", "min_samples_leaf", "l2_regularization"]:
+        if param not in near.columns:
+            continue
+        values = pd.to_numeric(near[param], errors="coerce").dropna().sort_values().unique()
+        if len(values) == 0:
+            continue
+        if len(values) == 1:
+            pieces.append(f"{param}={values[0]:g}")
+        else:
+            pieces.append(f"{param}≈{values[0]:g}–{values[-1]:g}")
+    return "; ".join(pieces) if pieces else "No numeric parameter region could be inferred."
+
+
+def _write_hgb_sweep_summary_markdown(
+    *,
+    summary: pd.DataFrame,
+    experiment_id: str | None,
+    run_id: str | None,
+    sweep_type: str,
+    primary_param: str,
+    group_param: str | None,
+    output_path: Path,
+) -> None:
+    numeric = _to_numeric_frame(summary, ["mean_test_score", "mean_train_score", "overfit_gap"])
+    numeric = numeric.dropna(subset=["mean_test_score"])
+    if numeric.empty:
+        output_path.write_text("# HGB sweep scientific summary\n\nNo numeric CV results were available.\n", encoding="utf-8")
+        return
+    best = numeric.sort_values("mean_test_score", ascending=False).iloc[0]
+    best_score = float(best["mean_test_score"])
+    simplest = _simplest_within(numeric, best_score)
+    gap = float(best.get("overfit_gap", np.nan))
+    warning = ""
+    if pd.notna(gap) and gap > 0.10:
+        warning = "\n\n> **Warning:** Best configuration overfit gap exceeds 0.10 R²."
+    interpretation = (
+        f"This {sweep_type} sweep varies `{primary_param}`"
+        + (f" within `{group_param}` groups" if group_param else "")
+        + ". The recommended region is based on configurations within 0.002 mean CV R² of the best row, favoring simpler capacity when performance is statistically close."
+    )
+    lines = [
+        "# HGB sweep scientific summary",
+        "",
+        f"- Experiment id: `{experiment_id or 'unknown'}`",
+        f"- Run id: `{run_id or 'unknown'}`",
+        f"- Sweep type: `{sweep_type}`",
+        f"- Primary parameter: `{primary_param}`",
+    ]
+    if group_param:
+        lines.append(f"- Group parameter: `{group_param}`")
+    lines.extend(
+        [
+            "",
+            "## Best configuration by mean CV R²",
+            "",
+            f"- Mean CV R²: `{best_score:.6f}`",
+            f"- CV std: `{float(best.get('std_test_score', np.nan)):.6f}`",
+            f"- Parameters: {_format_config(best)}",
+            "",
+            "## Simplest configuration within 0.002 CV R² of best",
+            "",
+            f"- Mean CV R²: `{float(simplest['mean_test_score']):.6f}`",
+            f"- Parameters: {_format_config(simplest)}",
+            "",
+            "## Overfit gap",
+            "",
+            f"- Best configuration train-minus-CV R² gap: `{gap:.6f}`" if pd.notna(gap) else "- Best configuration overfit gap unavailable because train scores were not archived.",
+            warning,
+            "",
+            "## Recommended parameter region",
+            "",
+            f"- {_recommended_region(numeric, best_score)}",
+            "",
+            "## Interpretation",
+            "",
+            interpretation,
+        ]
+    )
+    output_path.write_text("\n".join(line for line in lines if line is not None) + "\n", encoding="utf-8")
+
+
+def _write_hgb_sweep_diagnostics(
+    run_dir: Path,
+    *,
+    config: Mapping[str, Any],
+    run_id: str | None,
+) -> tuple[dict[str, Path], list[str]]:
+    diagnostics_config = config.get("diagnostics", {}) if isinstance(config, Mapping) else {}
+    if not isinstance(diagnostics_config, Mapping):
+        return {}, []
+    sweep_type = diagnostics_config.get("sweep_type")
+    primary_param = diagnostics_config.get("primary_param")
+    group_param = diagnostics_config.get("group_param")
+    if sweep_type not in {"hgb_lr_iter", "hgb_single_param"} or not primary_param:
+        return {}, []
+    cv_file = _hgb_cv_file(run_dir)
+    if cv_file is None:
+        return {}, ["Skipped HGB sweep plots: no HistGradientBoostingRegressor cv_results CSV found."]
+    cv_results = pd.read_csv(cv_file)
+    summary = _hgb_sweep_summary(cv_results, run_id=run_id)
+    diagnostics_dir = run_dir / "diagnostics"
+    plots_dir = run_dir / "plots" / "hgb_sweeps"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    outputs: dict[str, Path] = {}
+    summary_path = diagnostics_dir / "hgb_sweep_cv_results_summary.csv"
+    summary.to_csv(summary_path, index=False)
+    outputs["hgb_sweep_cv_results_summary"] = summary_path
+    primary = str(primary_param)
+    group = str(group_param) if group_param else None
+    curve = _aggregate_sweep_curve(summary, primary, group)
+    if sweep_type == "hgb_lr_iter":
+        prefix = "hgb_lr_iter"
+    else:
+        prefix = f"hgb_{primary}"
+    plot_specs = {
+        f"{prefix}_cv_r2": plots_dir / f"{prefix}_cv_r2.png",
+        f"{prefix}_train_vs_cv": plots_dir / f"{prefix}_train_vs_cv.png",
+        f"{prefix}_overfit_gap": plots_dir / f"{prefix}_overfit_gap.png",
+        f"{prefix}_fit_time": plots_dir / f"{prefix}_fit_time.png",
+    }
+    _plot_grouped_errorbar(
+        curve,
+        primary_param=primary,
+        group_param=group,
+        y_column="mean_cv_r2",
+        ylabel="Mean CV R²",
+        title=f"HGB CV R² by {primary}" + (f" and {group}" if group else ""),
+        output_path=plot_specs[f"{prefix}_cv_r2"],
+        error_column="std_cv_r2",
+    )
+    _plot_train_vs_cv(curve, primary_param=primary, group_param=group, output_path=plot_specs[f"{prefix}_train_vs_cv"])
+    _plot_grouped_errorbar(
+        curve,
+        primary_param=primary,
+        group_param=group,
+        y_column="mean_overfit_gap",
+        ylabel="Train-minus-CV R²",
+        title=f"HGB overfit gap by {primary}",
+        output_path=plot_specs[f"{prefix}_overfit_gap"],
+        zero_line=True,
+    )
+    _plot_grouped_errorbar(
+        curve,
+        primary_param=primary,
+        group_param=group,
+        y_column="mean_fit_time",
+        ylabel="Mean fit time (seconds)",
+        title=f"HGB fit time by {primary}",
+        output_path=plot_specs[f"{prefix}_fit_time"],
+    )
+    outputs.update({key: path for key, path in plot_specs.items() if path.exists()})
+    experiment_id = config.get("experiment", {}).get("id") if isinstance(config.get("experiment", {}), Mapping) else None
+    summary_md = diagnostics_dir / "hgb_sweep_scientific_summary.md"
+    _write_hgb_sweep_summary_markdown(
+        summary=summary,
+        experiment_id=experiment_id,
+        run_id=run_id,
+        sweep_type=str(sweep_type),
+        primary_param=primary,
+        group_param=group,
+        output_path=summary_md,
+    )
+    outputs["hgb_sweep_scientific_summary"] = summary_md
+    return outputs, []
+
+
 def _write_notes(run_dir: Path, notes: list[str], generated: list[Path]) -> Path:
     notes_path = run_dir / "diagnostics" / "diagnostics_build_notes.md"
     lines = ["# Diagnostics build notes", "", "## Generated artifacts", ""]
@@ -459,6 +830,7 @@ def build_diagnostics(run_dir: str | Path, *, split: str = "test") -> dict[str, 
 
     manifest = read_run_manifest(run_path)
     run_id = manifest.get("run_id")
+    config_used = _read_config_used(run_path)
     predictions = read_predictions(run_path)
     if run_id is None and not predictions.empty:
         run_id = str(predictions["run_id"].iloc[0])
@@ -544,8 +916,15 @@ def build_diagnostics(run_dir: str | Path, *, split: str = "test") -> dict[str, 
         elif output_path.exists():
             generated_plots.append(output_path)
 
+    sweep_outputs, sweep_notes = _write_hgb_sweep_diagnostics(
+        run_path, config=config_used, run_id=str(run_id) if run_id else None
+    )
+    notes.extend(sweep_notes)
+    outputs.update(sweep_outputs)
+    generated_sweep_artifacts = list(sweep_outputs.values())
+
     generated_tables = list(outputs.values())
-    notes_path = _write_notes(run_path, notes, [*generated_tables, *generated_plots])
+    notes_path = _write_notes(run_path, notes, [*generated_tables, *generated_plots, *generated_sweep_artifacts])
     outputs["diagnostics_build_notes"] = notes_path
     outputs.update(plot_outputs)
 
@@ -554,7 +933,10 @@ def build_diagnostics(run_dir: str | Path, *, split: str = "test") -> dict[str, 
         "split": split,
         "run_id": run_id,
         "tables": {key: str(path) for key, path in outputs.items() if path.suffix == ".csv"},
-        "plots": {key: str(path) for key, path in plot_outputs.items() if path.exists()},
+        "plots": {
+            **{key: str(path) for key, path in plot_outputs.items() if path.exists()},
+            **{key: str(path) for key, path in sweep_outputs.items() if path.suffix == ".png" and path.exists()},
+        },
         "notes": notes,
         "notes_path": str(notes_path),
     }

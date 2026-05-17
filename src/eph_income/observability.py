@@ -86,8 +86,8 @@ def log_model_fit_start(
     train_rows: int,
     feature_count: int,
     stream: TextIO | None = None,
-    sklearn_verbose,
-    heartbeat_interval,
+    sklearn_verbose: int = 0,
+    heartbeat_interval: float = 10,
 ) -> None:
     """Print a concise phase-level log line before model fitting starts."""
 
