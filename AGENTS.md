@@ -35,7 +35,7 @@ Current spec-driven development tools and discussions emphasize using specs to g
 
 The baseline experiment asks:
 
-> How well can supervised regression models predict individual total income, measured as `log10(P47T)`, from observed demographic, educational, labor, household, temporal, and geographic characteristics in EPH-derived training files?
+> How well can supervised regression models predict individual total income, measured as `log10(P47T)`, from observed demographic, educational, labor, household, temporal, and geographic characteristics in EPH-derived annual preprocessed input files?
 
 The initial comparison includes:
 
@@ -73,13 +73,13 @@ These may be future specs. They do not belong in the baseline unless requested.
 Expected input files:
 
 ```text
-data/training/EPHARG_train_22.csv
-data/training/EPHARG_train_23.csv
-data/training/EPHARG_train_24.csv
-data/training/EPHARG_train_25.csv
+data/annual_preprocessed_inputs/EPHARG_annual_input_22.csv
+data/annual_preprocessed_inputs/EPHARG_annual_input_23.csv
+data/annual_preprocessed_inputs/EPHARG_annual_input_24.csv
+data/annual_preprocessed_inputs/EPHARG_annual_input_25.csv
 ```
 
-These files should be treated as processed EPH-derived training inputs, not necessarily raw INDEC microdata.
+These files should be treated as annual preprocessed EPH-derived inputs produced by an upstream preprocessing pipeline, not raw INDEC microdata and not the train subset of a train/test/validation split. The older "training" term is historical.
 
 The legacy scripts load these four annual files, harmonize 2024 and 2025 by dropping some columns not aligned with prior years, concatenate all years, construct `logP47T`, engineer features, and train models.
 
@@ -147,7 +147,7 @@ A difference of `0.05` in log base 10 is not approximately 5 percent. It corresp
 
 The legacy feature engineering script does the following:
 
-* loads 2022, 2023, 2024, 2025 training files
+* loads 2022, 2023, 2024, 2025 annual preprocessed input files
 * drops columns from 2024 and 2025:
 
   * `V2_01_M`
@@ -259,8 +259,15 @@ logP47T
 
 ```text
 CODUSU
+```
+
+### Derived temporal/date variables excluded from X
+
+```text
 Q
 ```
+
+`Q` is a derived quarter-date/provenance variable, not an arbitrary identifier. It is excluded from baseline predictors because `ANO4` and `TRIMESTRE` already represent time for the baseline.
 
 ### Direct income components
 
@@ -589,11 +596,11 @@ Use “ingreso total individual” unless the code uses a specifically labor-inc
 
 Do not assert that `P47T` is deflated unless the pipeline explicitly does that or the input dataset documentation proves it.
 
-If the processed training files already contain deflated `P47T`, document the source.
+If the annual preprocessed input files already contain deflated `P47T`, document the source.
 
 If not verified, say:
 
-> The training files provide the income variable used in the experiment; whether it is nominal or real must be documented from the data-generation pipeline.
+> The annual preprocessed input files provide the income variable used in the experiment; whether it is nominal or real must be documented from the upstream data-generation pipeline.
 
 ### Temporal variables
 
