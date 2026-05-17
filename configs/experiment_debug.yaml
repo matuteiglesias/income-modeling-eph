@@ -1,6 +1,13 @@
 experiment:
-  id: baseline_income_prediction_v1
+  id: debug_experiment
   random_seed: 42
+
+runtime:
+  mode: debug
+  sample_n: 5000
+  enabled_models:
+    - linear_regression
+    - ridge
 
 data:
   input_files:
@@ -19,7 +26,7 @@ split:
   random_state: 42
 
 cv:
-  folds: 5
+  folds: 2
   scoring: r2
 
 models:
@@ -31,35 +38,32 @@ models:
   ridge:
     enabled: true
     grid:
-      reg__alpha: [2, 5, 10]
+      reg__alpha: [2, 5]
       reg__fit_intercept: [true]
 
   lasso:
-    enabled: true
+    enabled: false
     grid:
-      reg__alpha: [0.0025, 0.005, 0.0075]
+      reg__alpha: [0.0025]
       reg__fit_intercept: [true]
 
   hist_gradient_boosting:
-    enabled: true
+    enabled: false
     grid:
-      reg__max_iter: [100, 200]
-      reg__learning_rate: [0.25, 0.1, 0.05]
-      reg__max_leaf_nodes: [200, 400]
-      reg__min_samples_leaf: [15, 30]
+      reg__max_iter: [100]
+      reg__learning_rate: [0.1]
+      reg__max_leaf_nodes: [200]
+      reg__min_samples_leaf: [15]
       reg__l2_regularization: [0]
 
   mlp:
-    enabled: true
+    enabled: false
     grid:
       reg__hidden_layer_sizes:
         - [64, 32]
-        - [128, 64]
-        - [64, 64, 32]
-        - [128, 128]
-      reg__batch_size: [64, 128]
-      reg__max_iter: [100, 200]
+      reg__batch_size: [64]
+      reg__max_iter: [100]
 
 outputs:
-  model_comparison: reports/tables/model_comparison.csv
-  experiment_card: reports/experiment_cards/baseline_income_prediction.json
+  model_comparison: reports/tables/model_comparison_debug.csv
+  experiment_card: reports/experiment_cards/debug_experiment.json
