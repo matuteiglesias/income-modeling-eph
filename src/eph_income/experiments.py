@@ -85,8 +85,8 @@ def prepare_experiment_frame(
     joined = dataset.merge(assignments, on=ROW_ID_COLUMN, how="inner", validate="one_to_one")
 
     cv_folds = int(experiment_config.get("cv", {}).get("folds", 5))
-    runtime = experiment_config.get("runtime", {})
-    sample_n = runtime.get("sample_n") if isinstance(runtime, Mapping) else None
+    runtime = _runtime_mapping(experiment_config)
+    sample_n = runtime.get("sample_n")
     if sample_n is not None:
         sample_n = int(sample_n)
     random_seed = int(experiment_config.get("experiment", {}).get("random_seed", 42))
@@ -110,16 +110,50 @@ def _evaluate(model: Any, features: pd.DataFrame, target: pd.Series) -> dict[str
     }
 
 
-def run_experiment(
-    experiment_config: Mapping[str, Any], feature_contract: Mapping[str, Any]
-) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Run the State 5a debug model comparison and write outputs."""
+def _runtime_mapping(experiment_config: Mapping[str, Any]) -> Mapping[str, Any]:
+    runtime = experiment_config.get("runtime", {})
+    return runtime if isinstance(runtime, Mapping) else {}
 
-    mode = experiment_config.get("runtime", {}).get("mode")
-    if mode != "debug":
+
+def _validate_runtime_mode(experiment_config: Mapping[str, Any], *, allow_full_run: bool) -> str:
+    """Validate runtime guardrails and return the configured runtime mode."""
+
+    runtime = _runtime_mapping(experiment_config)
+    mode = str(runtime.get("mode", "full"))
+    if mode == "debug":
+        return mode
+    if mode != "full":
+        raise ValueError(f"Unsupported runtime.mode: {mode}")
+
+    config_allows_full = bool(runtime.get("allow_full_run", False))
+    if not allow_full_run and not config_allows_full:
         raise ValueError(
-            "Only runtime.mode=debug is enabled in State 5a; full baseline training is a later state."
+            "Full baseline training is guarded because it can be expensive. "
+            "Pass --allow-full-run or set runtime.allow_full_run: true in the config."
         )
+    return mode
+
+
+def _validate_feature_count_consistency(comparison: pd.DataFrame) -> None:
+    """Fail loudly if model rows do not report a common feature count."""
+
+    if comparison.empty:
+        raise ValueError("Experiment produced no model result rows.")
+    if "feature_count" not in comparison.columns:
+        raise ValueError("Experiment results must include feature_count.")
+    if comparison["feature_count"].nunique(dropna=False) != 1:
+        raise ValueError("All enabled models must report the same feature_count.")
+
+
+def run_experiment(
+    experiment_config: Mapping[str, Any],
+    feature_contract: Mapping[str, Any],
+    *,
+    allow_full_run: bool = False,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Run a debug or guarded full baseline model comparison and write outputs."""
+
+    mode = _validate_runtime_mode(experiment_config, allow_full_run=allow_full_run)
 
     joined, feature_columns, target = prepare_experiment_frame(experiment_config, feature_contract)
     train = joined[joined["split"] == "train"]
@@ -171,6 +205,7 @@ def run_experiment(
         )
 
     comparison = pd.DataFrame(rows)
+    _validate_feature_count_consistency(comparison)
     outputs = experiment_config.get("outputs", {})
     output_path = _resolve_output_path(outputs["model_comparison"])
     card_path = _resolve_output_path(outputs["experiment_card"])
@@ -180,7 +215,7 @@ def run_experiment(
 
     card = {
         "experiment_id": experiment_config.get("experiment", {}).get("id"),
-        "mode": experiment_config.get("runtime", {}).get("mode", "full"),
+        "mode": mode,
         "rows_used": int(len(joined)),
         "feature_count": int(len(feature_columns)),
         "feature_columns": feature_columns,

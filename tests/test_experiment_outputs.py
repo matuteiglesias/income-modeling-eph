@@ -3,8 +3,11 @@ from __future__ import annotations
 import json
 
 import pandas as pd
+import pytest
 
-from eph_income.experiments import run_experiment
+from eph_income.config import load_experiment_config
+from eph_income.experiments import _validate_feature_count_consistency, run_experiment
+from eph_income.pipelines import enabled_model_configs
 
 
 def test_debug_experiment_writes_expected_outputs(tmp_path) -> None:
@@ -100,3 +103,71 @@ def test_debug_experiment_writes_expected_outputs(tmp_path) -> None:
     assert leakage_columns.isdisjoint(card["feature_columns"])
     written_card = json.loads(card_path.read_text(encoding="utf-8"))
     assert written_card["mode"] == "debug"
+
+
+def test_baseline_config_enables_all_state6_models() -> None:
+    experiment_config = load_experiment_config("configs/experiment_baseline.yaml")
+
+    assert experiment_config["runtime"] == {
+        "mode": "full",
+        "sample_n": None,
+        "allow_full_run": False,
+    }
+    assert set(enabled_model_configs(experiment_config)) == {
+        "linear_regression",
+        "ridge",
+        "lasso",
+        "hist_gradient_boosting",
+        "mlp",
+    }
+
+
+def test_full_runtime_requires_explicit_allowance(tmp_path) -> None:
+    dataset_path = tmp_path / "modeling_dataset.parquet"
+    split_path = tmp_path / "split_assignments.csv"
+    output_csv = tmp_path / "model_comparison.csv"
+    card_path = tmp_path / "baseline_experiment.json"
+
+    pd.DataFrame(
+        {
+            "row_id": range(10),
+            "logP47T": [1.0 + i * 0.01 for i in range(10)],
+            "feature_num": range(10),
+        }
+    ).to_parquet(dataset_path, index=False)
+    pd.DataFrame(
+        {
+            "row_id": range(10),
+            "split": ["train"] * 7 + ["test"] * 2 + ["validation"],
+        }
+    ).to_csv(split_path, index=False)
+
+    experiment_config = {
+        "experiment": {"id": "guard_test", "random_seed": 42},
+        "runtime": {"mode": "full", "sample_n": None, "allow_full_run": False},
+        "data": {
+            "processed_dataset": str(dataset_path),
+            "split_assignments": str(split_path),
+        },
+        "cv": {"folds": 2, "scoring": "r2"},
+        "models": {
+            "linear_regression": {"enabled": True, "grid": {"reg__fit_intercept": [True]}},
+        },
+        "outputs": {"model_comparison": str(output_csv), "experiment_card": str(card_path)},
+    }
+    feature_contract = {
+        "target": {"name": "logP47T", "source": "P47T", "transform": "log10"},
+        "forbidden_predictors": {"target": ["P47T", "logP47T"]},
+    }
+
+    with pytest.raises(ValueError, match="Full baseline training is guarded"):
+        run_experiment(experiment_config, feature_contract)
+
+
+def test_feature_count_consistency_is_enforced() -> None:
+    consistent = pd.DataFrame({"model": ["a", "b"], "feature_count": [3, 3]})
+    _validate_feature_count_consistency(consistent)
+
+    inconsistent = pd.DataFrame({"model": ["a", "b"], "feature_count": [3, 4]})
+    with pytest.raises(ValueError, match="same feature_count"):
+        _validate_feature_count_consistency(inconsistent)
