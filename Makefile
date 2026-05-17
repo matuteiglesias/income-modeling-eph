@@ -1,4 +1,5 @@
-.PHONY: help install validate lint test build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep report build-diagnostics all
+.PHONY: help install validate lint test build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep  run-hgb-quick-benchmark report build-diagnostics all
+
 
 PYTHON ?= python3
 EXPERIMENT_CONFIG ?= configs/experiment_baseline.yaml
@@ -22,6 +23,7 @@ help:
 	@echo "  make run-hgb-leaf-capacity-sweep Run targeted HGB leaf-capacity sweep"
 	@echo "  make run-hgb-min-leaf-sweep      Run targeted HGB minimum-leaf-size sweep"
 	@echo "  make run-hgb-l2-sweep            Run targeted HGB L2-regularization sweep"
+	@echo "  make run-hgb-quick-benchmark     Run fast stable HGB benchmark and training-frame sample"
 	@echo "  make report                      Build thesis-ready report artifacts from saved outputs"
 	@echo "  make build-diagnostics           Build diagnostics for RUN_DIR=reports/runs/<run_id> [SPLIT=test]"
 	@echo "  make all                         Build dataset, run baseline, and build report"
@@ -74,6 +76,9 @@ run-hgb-min-leaf-sweep:
 run-hgb-l2-sweep:
 	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_l2_sweep.yaml ALLOW_FULL_RUN=1
 
+run-hgb-quick-benchmark:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_quick_benchmark.yaml ALLOW_FULL_RUN=1
+	
 report:
 	$(PYTHON) scripts/03_build_report_artifacts.py
 
