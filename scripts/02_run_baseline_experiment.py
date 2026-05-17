@@ -38,12 +38,23 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Allow runtime.mode=full experiments; required unless the config explicitly allows them.",
     )
+    parser.add_argument(
+        "--heartbeat-interval-seconds",
+        type=float,
+        default=None,
+        help="Seconds between long-fit heartbeat messages (default: config value or 10).",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     experiment_config = load_experiment_config(args.config)
+    if args.heartbeat_interval_seconds is not None:
+        experiment_config = dict(experiment_config)
+        runtime = dict(experiment_config.get("runtime", {}))
+        runtime["heartbeat_interval_seconds"] = args.heartbeat_interval_seconds
+        experiment_config["runtime"] = runtime
     feature_contract = load_feature_contract(args.feature_contract)
     comparison, card = run_experiment(
         experiment_config, feature_contract, allow_full_run=args.allow_full_run
