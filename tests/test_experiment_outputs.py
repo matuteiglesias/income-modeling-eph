@@ -993,3 +993,275 @@ def test_feature_view_group_permutation_updates_frame_and_training_sample(tmp_pa
     assert final_aglo_mapping == {"aglo_a": 0.9, "aglo_b": 0.5, "aglo_c": 0.1}
     assert final_region_mapping == {"region_a": 0.8, "region_b": 0.2}
     assert {"P47T", "P21", "CODUSU"}.isdisjoint(sample.columns)
+
+
+def _fixed_effect_test_inputs(tmp_path, *, models=None, fixed_effects=None, artifacts=None):
+    dataset_path = tmp_path / "modeling_dataset.parquet"
+    split_path = tmp_path / "split_assignments.csv"
+    runs_dir = tmp_path / "runs"
+    regions = ["pampeana", "nea", "noa"] * 20
+    aglos = ["aglo_a", "aglo_b", "aglo_c", "aglo_d"] * 15
+    years = [2022, 2023, 2024, 2025, 2022] * 12
+    dataset = pd.DataFrame(
+        {
+            "row_id": range(60),
+            "logP47T": [1.0 + i * 0.01 + (0.05 if regions[i] == "pampeana" else 0.0) for i in range(60)],
+            "Region": regions,
+            "AGLOMERADO": aglos,
+            "ANO4": years,
+            "TRIMESTRE": [1, 2, 3, 4] * 15,
+            "feature_num": [float(i % 7) for i in range(60)],
+        }
+    )
+    dataset.to_parquet(dataset_path, index=False)
+    pd.DataFrame(
+        {
+            "row_id": range(60),
+            "split": ["train"] * 42 + ["test"] * 12 + ["validation"] * 6,
+        }
+    ).to_csv(split_path, index=False)
+
+    if models is None:
+        models = {
+            "linear_regression": {"enabled": True, "grid": {"reg__fit_intercept": [True]}},
+        }
+    if fixed_effects is None:
+        fixed_effects = [
+            {"name": "region_fe", "columns": ["Region"], "max_levels": 20, "drop_first": True}
+        ]
+    experiment_config = {
+        "experiment": {"id": "fixed_effect_test", "random_seed": 42},
+        "runtime": {"mode": "debug", "sample_n": None},
+        "artifacts": artifacts or {"training_frame_sample_n": 10},
+        "model_design": {"fixed_effects": fixed_effects},
+        "data": {
+            "processed_dataset": str(dataset_path),
+            "split_assignments": str(split_path),
+        },
+        "cv": {"folds": 2, "scoring": "r2"},
+        "models": models,
+        "outputs": {"runs_dir": str(runs_dir)},
+    }
+    feature_contract = {
+        "target": {"name": "logP47T", "source": "P47T", "transform": "log10"},
+        "forbidden_predictors": {"target": ["P47T", "logP47T"], "identifiers": ["CODUSU"]},
+    }
+    return experiment_config, feature_contract
+
+
+def test_one_column_fixed_effect_creates_generated_feature_and_training_sample(tmp_path) -> None:
+    experiment_config, feature_contract = _fixed_effect_test_inputs(tmp_path)
+
+    _, card = run_experiment(experiment_config, feature_contract)
+
+    assert "fe_region_fe" in card["feature_columns"]
+    assert card["fixed_effects_used"] == [
+        {
+            "fe_name": "region_fe",
+            "source_columns": ["Region"],
+            "generated_column": "fe_region_fe",
+            "n_levels": 3,
+            "max_levels": 20,
+            "drop_first": True,
+        }
+    ]
+    run_dir = Path(card["canonical_run_dir"])
+    feature_columns = json.loads((run_dir / "feature_columns.json").read_text(encoding="utf-8"))
+    assert "fe_region_fe" in feature_columns
+    sample = pd.read_csv(run_dir / "artifacts" / "training_frame_sample.csv")
+    assert "fe_region_fe" in sample.columns
+    assert set(sample["fe_region_fe"]).issubset({"pampeana", "nea", "noa"})
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["fixed_effects_used"] == card["fixed_effects_used"]
+
+
+def test_two_column_fixed_effect_creates_deterministic_interaction_levels(tmp_path) -> None:
+    fixed_effects = [
+        {
+            "name": "aglo_year_fe",
+            "columns": ["AGLOMERADO", "ANO4"],
+            "max_levels": 500,
+            "drop_first": True,
+        }
+    ]
+    experiment_config, feature_contract = _fixed_effect_test_inputs(
+        tmp_path, fixed_effects=fixed_effects, artifacts={"training_frame_sample_n": 42}
+    )
+
+    _, card = run_experiment(experiment_config, feature_contract)
+
+    assert "fe_aglo_year_fe" in card["feature_columns"]
+    run_dir = Path(card["canonical_run_dir"])
+    sample = pd.read_csv(run_dir / "artifacts" / "training_frame_sample.csv")
+    assert "fe_aglo_year_fe" in sample.columns
+    expected = sample["AGLOMERADO"].astype(str) + "__" + sample["ANO4"].astype(str)
+    assert sample["fe_aglo_year_fe"].tolist() == expected.tolist()
+    assert card["fixed_effects_used"][0]["n_levels"] <= 500
+
+
+def test_fixed_effect_with_more_than_two_columns_fails_clearly(tmp_path) -> None:
+    fixed_effects = [
+        {
+            "name": "too_wide_fe",
+            "columns": ["AGLOMERADO", "ANO4", "TRIMESTRE"],
+            "max_levels": 500,
+            "drop_first": True,
+        }
+    ]
+    experiment_config, feature_contract = _fixed_effect_test_inputs(tmp_path, fixed_effects=fixed_effects)
+
+    with pytest.raises(ValueError, match="only one-column and two-column fixed effects"):
+        run_experiment(experiment_config, feature_contract)
+
+
+def test_fixed_effect_excessive_cardinality_fails_clearly(tmp_path) -> None:
+    fixed_effects = [
+        {"name": "aglo_fe", "columns": ["AGLOMERADO"], "max_levels": 2, "drop_first": True}
+    ]
+    experiment_config, feature_contract = _fixed_effect_test_inputs(tmp_path, fixed_effects=fixed_effects)
+
+    with pytest.raises(ValueError, match="exceeding max_levels=2"):
+        run_experiment(experiment_config, feature_contract)
+
+
+def test_fixed_effect_coefficients_written_for_linear_and_ridge(tmp_path) -> None:
+    models = {
+        "linear_regression": {"enabled": True, "grid": {"reg__fit_intercept": [True]}},
+        "ridge": {"enabled": True, "grid": {"reg__alpha": [1.0], "reg__fit_intercept": [True]}},
+    }
+    experiment_config, feature_contract = _fixed_effect_test_inputs(tmp_path, models=models)
+
+    _, card = run_experiment(experiment_config, feature_contract)
+
+    run_dir = Path(card["canonical_run_dir"])
+    path = run_dir / "diagnostics" / "fixed_effect_coefficients.csv"
+    assert path.exists()
+    coefficients = pd.read_csv(path)
+    assert {
+        "run_id",
+        "model",
+        "fe_name",
+        "level",
+        "feature",
+        "coefficient",
+        "abs_coefficient",
+        "sign",
+        "rank",
+    }.issubset(coefficients.columns)
+    assert set(coefficients["model"]) == {"LinearRegression", "Ridge"}
+    assert set(coefficients["fe_name"]) == {"region_fe"}
+    assert coefficients["feature"].str.contains("fe_region_fe").all()
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["paths"]["fixed_effect_coefficients"] == str(path)
+
+
+def test_hgb_fixed_effect_run_does_not_write_fe_coefficients(tmp_path) -> None:
+    models = {
+        "hist_gradient_boosting": {
+            "enabled": True,
+            "grid": {
+                "reg__max_iter": [5],
+                "reg__max_leaf_nodes": [7],
+                "reg__min_samples_leaf": [5],
+                "reg__early_stopping": [False],
+            },
+        }
+    }
+    experiment_config, feature_contract = _fixed_effect_test_inputs(tmp_path, models=models)
+
+    _, card = run_experiment(experiment_config, feature_contract)
+
+    run_dir = Path(card["canonical_run_dir"])
+    assert "fe_region_fe" in card["feature_columns"]
+    assert not (run_dir / "diagnostics" / "fixed_effect_coefficients.csv").exists()
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert "fixed_effect_coefficients" not in manifest["paths"]
+
+
+def test_linear_fixed_effect_smoke_configs_load_and_match_governance() -> None:
+    specs = {
+        "linear_region_fe_v1": {
+            "feature_view": {
+                "name": "linear_region_fe_clean",
+                "drop_columns": ["AGLO_rk", "Reg_rk", "AGLOMERADO"],
+            },
+            "fixed_effect": {
+                "name": "region_fe",
+                "columns": ["Region"],
+                "max_levels": 20,
+                "drop_first": True,
+            },
+        },
+        "linear_aglo_fe_v1": {
+            "feature_view": {
+                "name": "linear_aglo_fe_clean",
+                "drop_columns": ["AGLO_rk", "Reg_rk", "Region"],
+            },
+            "fixed_effect": {
+                "name": "aglo_fe",
+                "columns": ["AGLOMERADO"],
+                "max_levels": 100,
+                "drop_first": True,
+            },
+        },
+        "linear_year_fe_v1": {
+            "fixed_effect": {
+                "name": "year_fe",
+                "columns": ["ANO4"],
+                "max_levels": 10,
+                "drop_first": True,
+            },
+        },
+        "linear_quarter_fe_v1": {
+            "fixed_effect": {
+                "name": "quarter_fe",
+                "columns": ["TRIMESTRE"],
+                "max_levels": 8,
+                "drop_first": True,
+            },
+        },
+        "linear_aglo_year_fe_v1": {
+            "feature_view": {
+                "name": "linear_aglo_year_fe_clean",
+                "drop_columns": ["AGLO_rk", "Reg_rk", "Region"],
+            },
+            "fixed_effect": {
+                "name": "aglo_year_fe",
+                "columns": ["AGLOMERADO", "ANO4"],
+                "max_levels": 500,
+                "drop_first": True,
+            },
+        },
+    }
+
+    for experiment_id, expected in specs.items():
+        config = load_experiment_config(f"configs/experiment_{experiment_id}.yaml")
+
+        assert config["experiment"] == {
+            "id": experiment_id,
+            "kind": "fixed_effects_study",
+            "random_seed": 42,
+        }
+        parts = experiment_id.removesuffix("_v1").split("_")
+        assert parts[0] == "linear"
+        assert parts[-1] == "fe"
+        assert config["runtime"] == {"mode": "sweep", "sample_n": 5000}
+        assert config["artifacts"] == {"training_frame_sample_n": 10}
+        assert config["observability"] == {"heartbeat_seconds": 10, "sklearn_verbose": 2}
+        assert config["cv"] == {"folds": 3, "scoring": "r2", "return_train_score": True}
+        assert set(enabled_model_configs(config)) == {"linear_regression", "ridge"}
+        assert config["models"]["linear_regression"]["grid"] == {"reg__fit_intercept": [True]}
+        assert config["models"]["ridge"]["grid"] == {
+            "reg__alpha": [2],
+            "reg__fit_intercept": [True],
+        }
+        assert config["model_design"] == {"fixed_effects": [expected["fixed_effect"]]}
+        if "feature_view" in expected:
+            assert config["feature_view"] == expected["feature_view"]
+        else:
+            assert "feature_view" not in config
+        assert config["outputs"] == {
+            "model_comparison": f"reports/tables/model_comparison_{experiment_id}.csv",
+            "experiment_card": f"reports/experiment_cards/{experiment_id}.json",
+            "runs_dir": "reports/runs",
+        }

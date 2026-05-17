@@ -20,8 +20,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.base import clone
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import GridSearchCV
 
 from eph_income.observability import (
@@ -140,6 +140,110 @@ def prepare_experiment_frame(
     assert_no_forbidden_predictors(feature_columns, forbidden)
     return joined, feature_columns, target
 
+
+
+def _model_design_mapping(experiment_config: Mapping[str, Any]) -> Mapping[str, Any]:
+    model_design = experiment_config.get("model_design", {})
+    return model_design if isinstance(model_design, Mapping) else {}
+
+
+def _fixed_effect_specs(experiment_config: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    fixed_effects = _model_design_mapping(experiment_config).get("fixed_effects", [])
+    if fixed_effects is None:
+        return []
+    if not isinstance(fixed_effects, list):
+        raise TypeError("model_design.fixed_effects must be a list when provided.")
+    for spec in fixed_effects:
+        if not isinstance(spec, Mapping):
+            raise TypeError("Each model_design.fixed_effects entry must be a mapping.")
+    return fixed_effects
+
+
+def _fixed_effect_column_name(fe_name: str) -> str:
+    return f"fe_{_safe_run_component(fe_name)}"
+
+
+def _string_level_values(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
+    values = frame[columns].astype("string").fillna("<NA>")
+    if len(columns) == 1:
+        return values[columns[0]]
+    return values[columns[0]].str.cat(values[columns[1]], sep="__")
+
+
+def apply_fixed_effects(
+    *,
+    experiment_config: Mapping[str, Any],
+    feature_contract: Mapping[str, Any],
+    joined: pd.DataFrame,
+    feature_columns: list[str],
+) -> tuple[pd.DataFrame, list[str], list[dict[str, Any]]]:
+    """Generate configured one-way or two-way fixed-effect categorical columns."""
+
+    fixed_effect_metadata: list[dict[str, Any]] = []
+    fixed_effect_specs = _fixed_effect_specs(experiment_config)
+    if not fixed_effect_specs:
+        return joined, feature_columns, fixed_effect_metadata
+
+    frame = joined.copy()
+    final_feature_columns = list(feature_columns)
+    for index, spec in enumerate(fixed_effect_specs):
+        fe_name = str(spec.get("name") or f"fixed_effect_{index + 1}")
+        columns_raw = spec.get("columns")
+        if not isinstance(columns_raw, list) or not columns_raw:
+            raise ValueError(f"Fixed effect {fe_name} must declare a non-empty columns list.")
+        source_columns = [str(column) for column in columns_raw]
+        if len(source_columns) > 2:
+            raise ValueError(
+                f"Fixed effect {fe_name} declares {len(source_columns)} columns; "
+                "only one-column and two-column fixed effects are supported."
+            )
+        missing_columns = [column for column in source_columns if column not in frame.columns]
+        if missing_columns:
+            raise ValueError(
+                f"Fixed effect {fe_name} source columns are missing from the experiment frame: "
+                + ", ".join(missing_columns)
+            )
+        max_levels = int(spec.get("max_levels", 0))
+        if max_levels <= 0:
+            raise ValueError(f"Fixed effect {fe_name} must declare positive max_levels.")
+
+        generated_column = _fixed_effect_column_name(fe_name)
+        if generated_column in frame.columns and generated_column not in final_feature_columns:
+            raise ValueError(
+                f"Fixed effect {fe_name} generated column {generated_column} already exists "
+                "outside the feature list."
+            )
+        frame[generated_column] = _string_level_values(frame, source_columns)
+        n_levels = int(frame[generated_column].nunique(dropna=False))
+        if n_levels > max_levels:
+            raise ValueError(
+                f"Fixed effect {fe_name} has {n_levels} levels, exceeding max_levels={max_levels}."
+            )
+        if generated_column not in final_feature_columns:
+            final_feature_columns.append(generated_column)
+
+        fixed_effect_metadata.append(
+            {
+                "fe_name": fe_name,
+                "source_columns": source_columns,
+                "generated_column": generated_column,
+                "n_levels": n_levels,
+                "max_levels": max_levels,
+                "drop_first": bool(spec.get("drop_first", False)),
+            }
+        )
+
+    forbidden = get_forbidden_predictors(feature_contract)
+    assert_no_forbidden_predictors(final_feature_columns, forbidden)
+    return frame, final_feature_columns, fixed_effect_metadata
+
+
+def _fixed_effect_drop_first_columns(fixed_effects_used: list[dict[str, Any]]) -> set[str]:
+    return {
+        str(spec["generated_column"])
+        for spec in fixed_effects_used
+        if bool(spec.get("drop_first", False))
+    }
 
 def _feature_view_mapping(experiment_config: Mapping[str, Any]) -> Mapping[str, Any]:
     feature_view = experiment_config.get("feature_view", {})
@@ -471,6 +575,7 @@ def _make_dataset_card(
     joined: pd.DataFrame,
     feature_columns: list[str],
     target: str,
+    fixed_effects_used: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     processed_path = _resolve_output_path(experiment_config["data"]["processed_dataset"])
     split_path = get_split_path(experiment_config)
@@ -493,6 +598,7 @@ def _make_dataset_card(
         "target_definition": feature_contract.get("target", {}),
         "row_count": int(len(joined)),
         "feature_count": int(len(feature_columns)),
+        "fixed_effects_used": fixed_effects_used or [],
         "digest": _sha256_file(processed_path),
         "split_digest": _sha256_file(split_path),
         "splits": {split: int(count) for split, count in split_counts.items()},
@@ -684,6 +790,84 @@ def _write_best_coefficient_summary(
     table.to_csv(path, index=False)
     return path
 
+
+
+def _fixed_effect_coefficient_rows(
+    *,
+    run_id: str,
+    model_name: str,
+    estimator: Any,
+    fixed_effects_used: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Extract coefficient rows corresponding to generated fixed-effect columns."""
+
+    if model_name not in {"LinearRegression", "Ridge", "Lasso"} or not fixed_effects_used:
+        return []
+    coefficient_table = _coefficient_table(estimator)
+    if coefficient_table is None:
+        return []
+
+    rows: list[dict[str, Any]] = []
+    for fe_spec in fixed_effects_used:
+        fe_name = str(fe_spec["fe_name"])
+        generated_column = str(fe_spec["generated_column"])
+        prefixes = [
+            f"cat__{generated_column}_",
+            f"cat_drop_first__{generated_column}_",
+        ]
+        fe_rows = []
+        for record in coefficient_table[["feature", "coefficient", "abs_coefficient"]].to_dict(
+            orient="records"
+        ):
+            feature = str(record["feature"])
+            level = None
+            for prefix in prefixes:
+                if feature.startswith(prefix):
+                    level = feature.removeprefix(prefix)
+                    break
+            if level is None:
+                continue
+            coefficient = float(record["coefficient"])
+            fe_rows.append(
+                {
+                    "run_id": run_id,
+                    "model": model_name,
+                    "fe_name": fe_name,
+                    "level": level,
+                    "feature": feature,
+                    "coefficient": coefficient,
+                    "abs_coefficient": float(record["abs_coefficient"]),
+                    "sign": "positive" if coefficient > 0 else "negative" if coefficient < 0 else "zero",
+                }
+            )
+        fe_rows = sorted(fe_rows, key=lambda row: row["abs_coefficient"], reverse=True)
+        for rank, row in enumerate(fe_rows, start=1):
+            row["rank"] = rank
+            rows.append(row)
+    return rows
+
+
+def _write_fixed_effect_coefficients(
+    *, run_dir: Path, rows: list[dict[str, Any]]
+) -> Path | None:
+    """Write the combined fixed-effect coefficient export when linear rows exist."""
+
+    if not rows:
+        return None
+    columns = [
+        "run_id",
+        "model",
+        "fe_name",
+        "level",
+        "feature",
+        "coefficient",
+        "abs_coefficient",
+        "sign",
+        "rank",
+    ]
+    path = run_dir / "diagnostics" / "fixed_effect_coefficients.csv"
+    pd.DataFrame(rows, columns=columns).to_csv(path, index=False)
+    return path
 
 def _cv_param_rows(cv_results: pd.DataFrame) -> list[dict[str, Any]]:
     """Extract one fitted-parameter dictionary per GridSearchCV row."""
@@ -1024,6 +1208,13 @@ def run_experiment(
         joined=joined,
         feature_columns=feature_columns,
     )
+    joined, feature_columns, fixed_effects_used = apply_fixed_effects(
+        experiment_config=experiment_config,
+        feature_contract=feature_contract,
+        joined=joined,
+        feature_columns=feature_columns,
+    )
+    fixed_effect_drop_first_columns = _fixed_effect_drop_first_columns(fixed_effects_used)
     train = joined[joined["split"] == "train"]
     test = joined[joined["split"] == "test"]
     validation = joined[joined["split"] == "validation"]
@@ -1038,7 +1229,7 @@ def run_experiment(
     _write_yaml_snapshot(run_dir / "config_used.yaml", experiment_config)
     _write_yaml_snapshot(run_dir / "feature_contract_used.yaml", feature_contract)
     dataset_card = _make_dataset_card(
-        experiment_config, feature_contract, joined, feature_columns, target
+        experiment_config, feature_contract, joined, feature_columns, target, fixed_effects_used
     )
     (run_dir / "dataset_card.json").write_text(
         json.dumps(dataset_card, indent=2, sort_keys=True), encoding="utf-8"
@@ -1064,11 +1255,17 @@ def run_experiment(
     )
 
     rows: list[dict[str, Any]] = []
+    fixed_effect_coefficient_rows: list[dict[str, Any]] = []
     predictions_by_split: dict[str, list[pd.DataFrame]] = {"test": [], "validation": []}
 
     for model_key, model_config in enabled_model_configs(experiment_config).items():
         model_name = MODEL_DISPLAY_NAMES.get(model_key, model_key)
-        pipeline = make_model_pipeline(model_key, train[feature_columns], random_seed)
+        pipeline = make_model_pipeline(
+            model_key,
+            train[feature_columns],
+            random_seed,
+            drop_first_categorical_columns=fixed_effect_drop_first_columns,
+        )
         grid = model_config.get("grid", {})
 
         return_train_score = bool(experiment_config.get("cv", {}).get("return_train_score", False))
@@ -1118,6 +1315,15 @@ def run_experiment(
                 run_dir, config=experiment_config, run_id=run_id
             )
             model_artifact_paths.extend(sweep_diagnostic_paths.values())
+
+        fixed_effect_coefficient_rows.extend(
+            _fixed_effect_coefficient_rows(
+                run_id=run_id,
+                model_name=model_name,
+                estimator=search.best_estimator_,
+                fixed_effects_used=fixed_effects_used,
+            )
+        )
 
         if write_coefficient_diagnostics:
             coefficient_path = _write_best_coefficient_summary(
@@ -1195,6 +1401,10 @@ def run_experiment(
             }
         )
 
+    fixed_effect_coefficients_path = _write_fixed_effect_coefficients(
+        run_dir=run_dir, rows=fixed_effect_coefficient_rows
+    )
+
     comparison = pd.DataFrame(rows)
     _validate_feature_count_consistency(comparison)
     outputs = experiment_config.get("outputs", {})
@@ -1247,6 +1457,8 @@ def run_experiment(
     manifest_paths.update(hgb_plots)
     manifest_paths.update(hgb_sweep_plots)
     manifest_paths.update(hgb_sweep_markdown)
+    if fixed_effect_coefficients_path is not None:
+        manifest_paths["fixed_effect_coefficients"] = str(fixed_effect_coefficients_path)
     manifest_paths.update({key: str(path) for key, path in training_frame_sample_paths.items()})
     if output_path is not None:
         manifest_paths["model_comparison_convenience_copy"] = str(output_path)
@@ -1263,6 +1475,7 @@ def run_experiment(
         "rows_used": int(len(joined)),
         "models": comparison["model"].tolist(),
         "feature_view": feature_view_metadata,
+        "fixed_effects_used": fixed_effects_used,
         "paths": manifest_paths,
     }
     (run_dir / "run_manifest.json").write_text(
@@ -1277,6 +1490,7 @@ def run_experiment(
         "feature_count": int(len(feature_columns)),
         "feature_columns": feature_columns,
         "feature_view": feature_view_metadata,
+        "fixed_effects_used": fixed_effects_used,
         "models": comparison["model"].tolist(),
         "model_comparison": str(output_path or run_model_comparison_path),
         "canonical_run_dir": str(run_dir),
