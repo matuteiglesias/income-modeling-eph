@@ -1,0 +1,24 @@
+# data
+data/raw/
+data/training/
+data/processed/
+*.csv
+*.parquet
+*.pkl
+*.joblib
+
+# outputs
+reports/figures/*.png
+reports/tables/*.csv
+reports/experiment_cards/*.json
+
+# python
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+.env
+
+# notebooks / local
+.ipynb_checkpoints/
+.DS_Store

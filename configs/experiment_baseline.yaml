@@ -1,0 +1,65 @@
+experiment:
+  id: baseline_income_prediction_v1
+  random_seed: 42
+
+data:
+  input_files:
+    "2022": data/training/EPHARG_train_22.csv
+    "2023": data/training/EPHARG_train_23.csv
+    "2024": data/training/EPHARG_train_24.csv
+    "2025": data/training/EPHARG_train_25.csv
+  processed_dataset: data/processed/modeling_dataset.parquet
+  split_assignments: data/processed/split_assignments.csv
+
+split:
+  train_size: 0.70
+  test_size: 0.20
+  validation_size: 0.10
+  strategy: random_individual
+  random_state: 42
+
+cv:
+  folds: 5
+  scoring: r2
+
+models:
+  linear_regression:
+    enabled: true
+    grid:
+      reg__fit_intercept: [true]
+
+  ridge:
+    enabled: true
+    grid:
+      reg__alpha: [2, 5, 10]
+      reg__fit_intercept: [true]
+
+  lasso:
+    enabled: true
+    grid:
+      reg__alpha: [0.0025, 0.005, 0.0075]
+      reg__fit_intercept: [true]
+
+  hist_gradient_boosting:
+    enabled: true
+    grid:
+      reg__max_iter: [100, 200]
+      reg__learning_rate: [0.25, 0.1, 0.05]
+      reg__max_leaf_nodes: [200, 400]
+      reg__min_samples_leaf: [15, 30]
+      reg__l2_regularization: [0]
+
+  mlp:
+    enabled: true
+    grid:
+      reg__hidden_layer_sizes:
+        - [64, 32]
+        - [128, 64]
+        - [64, 64, 32]
+        - [128, 128]
+      reg__batch_size: [64, 128]
+      reg__max_iter: [100, 200]
+
+outputs:
+  model_comparison: reports/tables/model_comparison.csv
+  experiment_card: reports/experiment_cards/baseline_income_prediction.json

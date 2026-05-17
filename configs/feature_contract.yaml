@@ -1,0 +1,47 @@
+target:
+  name: logP47T
+  source: P47T
+  transform: log10
+
+inclusion:
+  INGRESO: 1
+  require_positive:
+    - P47T
+  require_not_missing:
+    - PROP
+
+forbidden_predictors:
+  identifiers:
+    - CODUSU
+    - Q
+  target:
+    - P47T
+    - logP47T
+  income_components:
+    - P21
+    - T_VI
+    - V12_M
+    - V2_M
+    - V3_M
+    - V5_M
+    - TOT_P12
+    - PP08D1
+  transformed_income_components:
+    - logP21
+    - logT_VI
+    - logV12_M
+    - logV2_M
+    - logV3_M
+    - logV5_M
+    - logTOT_P12
+    - logPP08D1
+  income_indicators:
+    - INGRESO_NLB
+    - INGRESO_JUB
+    - INGRESO_SBS
+
+temporal_features:
+  include:
+    - ANO4
+    - TRIMESTRE
+  decision: include_in_baseline

@@ -1,0 +1,23 @@
+[project]
+name = "eph-income-modeling"
+version = "0.1.0"
+description = "Spec-driven reproducible experiments for EPH income prediction"
+requires-python = ">=3.10"
+dependencies = [
+  "pandas",
+  "numpy",
+  "scikit-learn",
+  "matplotlib",
+  "pyyaml",
+  "pyarrow",
+  "joblib"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ruff"
+]
+
+[tool.ruff]
+line-length = 100
