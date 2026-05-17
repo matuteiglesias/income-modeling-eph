@@ -1,4 +1,4 @@
-.PHONY: help install validate lint test build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep  run-hgb-quick-benchmark report build-diagnostics all
+.PHONY: help install validate lint test build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep run-hgb-quick-benchmark run-hgb-quick-with-geo-ranks run-hgb-quick-clean-geo run-hgb-quick-no-geo run-hgb-quick-shuffled-geo-ranks report build-diagnostics all
 
 
 PYTHON ?= python3
@@ -24,6 +24,10 @@ help:
 	@echo "  make run-hgb-min-leaf-sweep      Run targeted HGB minimum-leaf-size sweep"
 	@echo "  make run-hgb-l2-sweep            Run targeted HGB L2-regularization sweep"
 	@echo "  make run-hgb-quick-benchmark     Run fast stable HGB benchmark and training-frame sample"
+	@echo "  make run-hgb-quick-with-geo-ranks Run HGB geography smoke with target-derived geo ranks"
+	@echo "  make run-hgb-quick-clean-geo      Run HGB geography smoke dropping geo ranks"
+	@echo "  make run-hgb-quick-no-geo         Run HGB geography smoke dropping all geography columns"
+	@echo "  make run-hgb-quick-shuffled-geo-ranks Run HGB geography smoke with shuffled geo ranks"
 	@echo "  make report                      Build thesis-ready report artifacts from saved outputs"
 	@echo "  make build-diagnostics           Build diagnostics for RUN_DIR=reports/runs/<run_id> [SPLIT=test]"
 	@echo "  make all                         Build dataset, run baseline, and build report"
@@ -78,7 +82,19 @@ run-hgb-l2-sweep:
 
 run-hgb-quick-benchmark:
 	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_quick_benchmark.yaml ALLOW_FULL_RUN=1
-	
+
+run-hgb-quick-with-geo-ranks:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_quick_with_geo_ranks_v1.yaml ALLOW_FULL_RUN=1
+
+run-hgb-quick-clean-geo:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_quick_clean_geo_v1.yaml ALLOW_FULL_RUN=1
+
+run-hgb-quick-no-geo:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_quick_no_geo_v1.yaml ALLOW_FULL_RUN=1
+
+run-hgb-quick-shuffled-geo-ranks:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_quick_shuffled_geo_ranks_v1.yaml ALLOW_FULL_RUN=1
+
 report:
 	$(PYTHON) scripts/03_build_report_artifacts.py
 

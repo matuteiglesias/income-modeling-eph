@@ -1,0 +1,67 @@
+experiment:
+  id: hgb_quick_with_geo_ranks_v1
+  kind: geography_leakage_probe
+  random_seed: 42
+
+runtime:
+  mode: sweep
+  sample_n: 5000
+  enabled_models:
+    - hist_gradient_boosting
+
+data:
+  processed_dataset: data/processed/modeling_dataset.parquet
+  split_assignments: data/processed/split_assignments.csv
+
+split:
+  train_size: 0.70
+  test_size: 0.20
+  validation_size: 0.10
+  strategy: random_individual
+  random_state: 42
+
+cv:
+  folds: 3
+  scoring: r2
+  return_train_score: true
+
+artifacts:
+  training_frame_sample_n: 10
+
+models:
+  linear_regression:
+    enabled: false
+    grid: {}
+
+  ridge:
+    enabled: false
+    grid: {}
+
+  lasso:
+    enabled: false
+    grid: {}
+
+  hist_gradient_boosting:
+    enabled: true
+    grid:
+      reg__loss: ["squared_error"]
+      reg__learning_rate: [0.075]
+      reg__max_iter: [200]
+      reg__max_leaf_nodes: [31]
+      reg__min_samples_leaf: [100]
+      reg__l2_regularization: [0.0]
+      reg__early_stopping: [false]
+      reg__random_state: [42]
+
+  mlp:
+    enabled: false
+    grid: {}
+
+outputs:
+  model_comparison: reports/tables/model_comparison_hgb_quick_with_geo_ranks_v1.csv
+  experiment_card: reports/experiment_cards/hgb_quick_with_geo_ranks_v1.json
+  runs_dir: reports/runs
+
+observability:
+  heartbeat_seconds: 10
+  sklearn_verbose: 2

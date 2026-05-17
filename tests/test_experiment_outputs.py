@@ -39,7 +39,11 @@ def test_debug_experiment_writes_expected_outputs(tmp_path) -> None:
 
     experiment_config = {
         "experiment": {"id": "debug_test", "random_seed": 42},
-        "runtime": {"mode": "debug", "sample_n": None, "enabled_models": ["linear_regression", "ridge"]},
+        "runtime": {
+            "mode": "debug",
+            "sample_n": None,
+            "enabled_models": ["linear_regression", "ridge"],
+        },
         "data": {
             "processed_dataset": str(dataset_path),
             "split_assignments": str(split_path),
@@ -413,7 +417,10 @@ def test_hgb_sweep_config_disables_early_stopping_for_interpretable_max_iter() -
     assert hgb_grid["reg__min_samples_leaf"] == [50, 100, 200]
     assert hgb_grid["reg__l2_regularization"] == [0.0, 0.01]
     assert hgb_grid["reg__early_stopping"] == [False]
-    assert "exact number of boosting iterations" in experiment_config["scientific_notes"]["early_stopping_decision"]
+    assert (
+        "exact number of boosting iterations"
+        in experiment_config["scientific_notes"]["early_stopping_decision"]
+    )
 
 
 def test_hgb_experiment_writes_hgb_specific_diagnostics_and_plots(tmp_path) -> None:
@@ -441,7 +448,11 @@ def test_hgb_experiment_writes_hgb_specific_diagnostics_and_plots(tmp_path) -> N
 
     experiment_config = {
         "experiment": {"id": "hgb_diagnostics_test", "random_seed": 42},
-        "runtime": {"mode": "debug", "sample_n": None, "enabled_models": ["hist_gradient_boosting"]},
+        "runtime": {
+            "mode": "debug",
+            "sample_n": None,
+            "enabled_models": ["hist_gradient_boosting"],
+        },
         "data": {
             "processed_dataset": str(dataset_path),
             "split_assignments": str(split_path),
@@ -499,8 +510,9 @@ def test_hgb_experiment_writes_hgb_specific_diagnostics_and_plots(tmp_path) -> N
         "hgb_l2_regularization_vs_cv_r2.png",
         "hgb_train_vs_cv_r2_top_configs.png",
     }
-    assert expected_plots.issubset({path.name for path in (run_dir / "plots" / "hgb").glob("*.png")})
-
+    assert expected_plots.issubset(
+        {path.name for path in (run_dir / "plots" / "hgb").glob("*.png")}
+    )
 
 
 def test_targeted_hgb_sweep_configs_declare_single_question_grids() -> None:
@@ -525,7 +537,10 @@ def test_targeted_hgb_sweep_configs_declare_single_question_grids() -> None:
     leaf = load_experiment_config("configs/experiment_hgb_leaf_capacity_sweep.yaml")
     leaf_grid = leaf["models"]["hist_gradient_boosting"]["grid"]
     assert leaf["experiment"]["id"] == "hgb_leaf_capacity_sweep_v1"
-    assert leaf["diagnostics"] == {"sweep_type": "hgb_single_param", "primary_param": "max_leaf_nodes"}
+    assert leaf["diagnostics"] == {
+        "sweep_type": "hgb_single_param",
+        "primary_param": "max_leaf_nodes",
+    }
     assert leaf_grid["reg__max_leaf_nodes"] == [7, 15, 23, 31, 47, 63, 95, 127]
     assert leaf_grid["reg__learning_rate"] == [0.05]
     assert leaf_grid["reg__max_iter"] == [200]
@@ -533,17 +548,25 @@ def test_targeted_hgb_sweep_configs_declare_single_question_grids() -> None:
     min_leaf = load_experiment_config("configs/experiment_hgb_min_leaf_sweep.yaml")
     min_leaf_grid = min_leaf["models"]["hist_gradient_boosting"]["grid"]
     assert min_leaf["experiment"]["id"] == "hgb_min_leaf_sweep_v1"
-    assert min_leaf["diagnostics"] == {"sweep_type": "hgb_single_param", "primary_param": "min_samples_leaf"}
+    assert min_leaf["diagnostics"] == {
+        "sweep_type": "hgb_single_param",
+        "primary_param": "min_samples_leaf",
+    }
     assert min_leaf_grid["reg__min_samples_leaf"] == [20, 30, 50, 75, 100, 150, 200, 300]
 
     l2 = load_experiment_config("configs/experiment_hgb_l2_sweep.yaml")
     l2_grid = l2["models"]["hist_gradient_boosting"]["grid"]
     assert l2["experiment"]["id"] == "hgb_l2_sweep_v1"
-    assert l2["diagnostics"] == {"sweep_type": "hgb_single_param", "primary_param": "l2_regularization"}
+    assert l2["diagnostics"] == {
+        "sweep_type": "hgb_single_param",
+        "primary_param": "l2_regularization",
+    }
     assert l2_grid["reg__l2_regularization"] == [0.0, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0]
 
 
-def _training_frame_sample_test_inputs(tmp_path, *, artifacts=None, sample_n=None, enabled_models=None):
+def _training_frame_sample_test_inputs(
+    tmp_path, *, artifacts=None, sample_n=None, enabled_models=None
+):
     dataset_path = tmp_path / "modeling_dataset.parquet"
     split_path = tmp_path / "split_assignments.csv"
     runs_dir = tmp_path / "runs"
@@ -611,7 +634,15 @@ def test_training_frame_sample_artifact_writes_schema_and_metadata(tmp_path) -> 
     assert metadata_path.exists()
 
     sample = pd.read_csv(sample_path)
-    expected_columns = ["row_id", "split", "logP47T", "ANO4", "TRIMESTRE", "feature_num", "feature_cat"]
+    expected_columns = [
+        "row_id",
+        "split",
+        "logP47T",
+        "ANO4",
+        "TRIMESTRE",
+        "feature_num",
+        "feature_cat",
+    ]
     assert sample.columns.tolist() == expected_columns
     assert len(sample) == 5
     assert set(sample["split"]) == {"train"}
@@ -627,7 +658,10 @@ def test_training_frame_sample_artifact_writes_schema_and_metadata(tmp_path) -> 
     assert metadata["feature_count"] == 4
     assert metadata["columns_written"] == expected_columns
     assert metadata["random_state"] == 42
-    assert metadata["note"] == "Sample drawn from the train split after runtime sampling and before model fitting."
+    assert (
+        metadata["note"]
+        == "Sample drawn from the train split after runtime sampling and before model fitting."
+    )
 
     manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
     assert manifest["paths"]["training_frame_sample"] == str(sample_path)
@@ -681,3 +715,281 @@ def test_training_frame_sample_is_one_file_per_run_not_per_model(tmp_path) -> No
     assert len(list((run_dir / "artifacts").glob("training_frame_sample.csv"))) == 1
     assert len(list((run_dir / "artifacts").glob("training_frame_sample_metadata.json"))) == 1
     assert len(list((run_dir / "cv_results").glob("*.csv"))) == 2
+
+
+def _feature_view_test_inputs(tmp_path, *, drop_columns):
+    dataset_path = tmp_path / "modeling_dataset.parquet"
+    split_path = tmp_path / "split_assignments.csv"
+    runs_dir = tmp_path / "runs"
+    dataset = pd.DataFrame(
+        {
+            "row_id": range(30),
+            "logP47T": [1.0 + i * 0.01 for i in range(30)],
+            "ANO4": [2022, 2023, 2024] * 10,
+            "TRIMESTRE": [1, 2, 3, 4, 1] * 6,
+            "AGLOMERADO": ["aglo_a", "aglo_b", "aglo_c"] * 10,
+            "Region": ["region_a", "region_b"] * 15,
+            "AGLO_rk": [0.1, 0.5, 0.9] * 10,
+            "Reg_rk": [0.2, 0.8] * 15,
+            "feature_num": range(30),
+        }
+    )
+    dataset.to_parquet(dataset_path, index=False)
+    pd.DataFrame(
+        {
+            "row_id": range(30),
+            "split": ["train"] * 21 + ["test"] * 6 + ["validation"] * 3,
+        }
+    ).to_csv(split_path, index=False)
+
+    experiment_config = {
+        "experiment": {"id": "feature_view_test", "random_seed": 42},
+        "runtime": {"mode": "debug", "sample_n": None},
+        "feature_view": {"name": "clean_geo", "drop_columns": drop_columns},
+        "artifacts": {"training_frame_sample_n": 5},
+        "data": {
+            "processed_dataset": str(dataset_path),
+            "split_assignments": str(split_path),
+        },
+        "cv": {"folds": 2, "scoring": "r2"},
+        "models": {
+            "linear_regression": {"enabled": True, "grid": {"reg__fit_intercept": [True]}},
+        },
+        "outputs": {"runs_dir": str(runs_dir)},
+    }
+    feature_contract = {
+        "target": {"name": "logP47T", "source": "P47T", "transform": "log10"},
+        "forbidden_predictors": {
+            "target": ["P47T", "logP47T"],
+            "identifiers": ["CODUSU"],
+            "income_components": ["P21"],
+        },
+    }
+    return experiment_config, feature_contract
+
+
+def test_feature_view_drop_columns_updates_training_features_and_artifacts(tmp_path) -> None:
+    experiment_config, feature_contract = _feature_view_test_inputs(
+        tmp_path, drop_columns=["AGLO_rk", "Reg_rk"]
+    )
+
+    _, card = run_experiment(experiment_config, feature_contract)
+
+    run_dir = Path(card["canonical_run_dir"])
+    feature_columns = json.loads((run_dir / "feature_columns.json").read_text(encoding="utf-8"))
+    assert "AGLO_rk" not in feature_columns
+    assert "Reg_rk" not in feature_columns
+    assert "AGLOMERADO" in feature_columns
+    assert "Region" in feature_columns
+    assert {"P47T", "logP47T", "P21", "CODUSU"}.isdisjoint(feature_columns)
+    assert card["feature_columns"] == feature_columns
+    assert card["feature_view"] == {
+        "name": "clean_geo",
+        "drop_columns": ["AGLO_rk", "Reg_rk"],
+        "dropped_columns_present": ["AGLO_rk", "Reg_rk"],
+        "dropped_columns_missing": [],
+        "permute_group_values": [],
+        "permuted_columns": [],
+        "group_by_columns": [],
+    }
+
+    sample = pd.read_csv(run_dir / "artifacts" / "training_frame_sample.csv")
+    assert "AGLO_rk" not in sample.columns
+    assert "Reg_rk" not in sample.columns
+    assert "AGLOMERADO" in sample.columns
+    assert "Region" in sample.columns
+    assert {"P47T", "P21", "CODUSU"}.isdisjoint(sample.columns)
+
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["feature_view"] == card["feature_view"]
+
+
+def test_feature_view_missing_drop_columns_are_recorded_without_crashing(tmp_path) -> None:
+    experiment_config, feature_contract = _feature_view_test_inputs(
+        tmp_path, drop_columns=["AGLO_rk", "missing_rank"]
+    )
+
+    _, card = run_experiment(experiment_config, feature_contract)
+
+    run_dir = Path(card["canonical_run_dir"])
+    feature_columns = json.loads((run_dir / "feature_columns.json").read_text(encoding="utf-8"))
+    assert "AGLO_rk" not in feature_columns
+    assert "Reg_rk" in feature_columns
+    assert card["feature_view"]["dropped_columns_present"] == ["AGLO_rk"]
+    assert card["feature_view"]["dropped_columns_missing"] == ["missing_rank"]
+
+    sample = pd.read_csv(run_dir / "artifacts" / "training_frame_sample.csv")
+    assert "AGLO_rk" not in sample.columns
+    assert "Reg_rk" in sample.columns
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["feature_view"] == card["feature_view"]
+
+
+def test_hgb_quick_geography_smoke_configs_load_and_share_governed_grid() -> None:
+    config_paths = [
+        "configs/experiment_hgb_quick_with_geo_ranks_v1.yaml",
+        "configs/experiment_hgb_quick_clean_geo_v1.yaml",
+        "configs/experiment_hgb_quick_no_geo_v1.yaml",
+        "configs/experiment_hgb_quick_shuffled_geo_ranks_v1.yaml",
+    ]
+    expected_grid = {
+        "reg__loss": ["squared_error"],
+        "reg__learning_rate": [0.075],
+        "reg__max_iter": [200],
+        "reg__max_leaf_nodes": [31],
+        "reg__min_samples_leaf": [100],
+        "reg__l2_regularization": [0.0],
+        "reg__early_stopping": [False],
+        "reg__random_state": [42],
+    }
+
+    configs = [load_experiment_config(path) for path in config_paths]
+
+    assert [config["experiment"]["id"] for config in configs] == [
+        "hgb_quick_with_geo_ranks_v1",
+        "hgb_quick_clean_geo_v1",
+        "hgb_quick_no_geo_v1",
+        "hgb_quick_shuffled_geo_ranks_v1",
+    ]
+    for config in configs:
+        assert config["experiment"]["kind"] == "geography_leakage_probe"
+        assert config["runtime"] == {
+            "mode": "sweep",
+            "sample_n": 5000,
+            "enabled_models": ["hist_gradient_boosting"],
+        }
+        assert config["artifacts"] == {"training_frame_sample_n": 10}
+        assert config["observability"] == {"heartbeat_seconds": 10, "sklearn_verbose": 2}
+        assert config["cv"] == {"folds": 3, "scoring": "r2", "return_train_score": True}
+        assert set(enabled_model_configs(config)) == {"hist_gradient_boosting"}
+        assert config["models"]["hist_gradient_boosting"]["grid"] == expected_grid
+
+
+def test_hgb_quick_geography_smoke_configs_declare_feature_views() -> None:
+    with_geo_ranks = load_experiment_config("configs/experiment_hgb_quick_with_geo_ranks_v1.yaml")
+    clean_geo = load_experiment_config("configs/experiment_hgb_quick_clean_geo_v1.yaml")
+    no_geo = load_experiment_config("configs/experiment_hgb_quick_no_geo_v1.yaml")
+    shuffled = load_experiment_config("configs/experiment_hgb_quick_shuffled_geo_ranks_v1.yaml")
+
+    assert "feature_view" not in with_geo_ranks
+    assert clean_geo["feature_view"] == {
+        "name": "clean_geo",
+        "drop_columns": ["AGLO_rk", "Reg_rk"],
+    }
+    assert no_geo["feature_view"] == {
+        "name": "no_geo",
+        "drop_columns": ["AGLOMERADO", "Region", "AGLO_rk", "Reg_rk"],
+    }
+    assert shuffled["feature_view"] == {
+        "name": "shuffled_geo_ranks",
+        "permute_group_values": [
+            {"column": "AGLO_rk", "group_by": "AGLOMERADO", "random_state": 42},
+            {"column": "Reg_rk", "group_by": "Region", "random_state": 42},
+        ],
+    }
+
+
+def test_feature_view_group_permutation_updates_frame_and_training_sample(tmp_path) -> None:
+    dataset_path = tmp_path / "modeling_dataset.parquet"
+    split_path = tmp_path / "split_assignments.csv"
+    runs_dir = tmp_path / "runs"
+    aglos = ["aglo_a", "aglo_b", "aglo_c"] * 10
+    regions = ["region_a", "region_b"] * 15
+    aglo_rank = {"aglo_a": 0.1, "aglo_b": 0.5, "aglo_c": 0.9}
+    region_rank = {"region_a": 0.2, "region_b": 0.8}
+    dataset = pd.DataFrame(
+        {
+            "row_id": range(30),
+            "logP47T": [1.0 + i * 0.01 for i in range(30)],
+            "ANO4": [2022, 2023, 2024] * 10,
+            "TRIMESTRE": [1, 2, 3, 4, 1] * 6,
+            "AGLOMERADO": aglos,
+            "Region": regions,
+            "AGLO_rk": [aglo_rank[aglo] for aglo in aglos],
+            "Reg_rk": [region_rank[region] for region in regions],
+            "feature_num": range(30),
+        }
+    )
+    dataset.to_parquet(dataset_path, index=False)
+    pd.DataFrame(
+        {
+            "row_id": range(30),
+            "split": ["train"] * 21 + ["test"] * 6 + ["validation"] * 3,
+        }
+    ).to_csv(split_path, index=False)
+
+    experiment_config = {
+        "experiment": {"id": "feature_view_permutation_test", "random_seed": 42},
+        "runtime": {"mode": "debug", "sample_n": None},
+        "feature_view": {
+            "name": "shuffled_geo_ranks",
+            "permute_group_values": [
+                {"column": "AGLO_rk", "group_by": "AGLOMERADO", "random_state": 42},
+                {"column": "Reg_rk", "group_by": "Region", "random_state": 42},
+            ],
+        },
+        "artifacts": {"training_frame_sample_n": 21},
+        "data": {
+            "processed_dataset": str(dataset_path),
+            "split_assignments": str(split_path),
+        },
+        "cv": {"folds": 2, "scoring": "r2"},
+        "models": {
+            "linear_regression": {"enabled": True, "grid": {"reg__fit_intercept": [True]}},
+        },
+        "outputs": {"runs_dir": str(runs_dir)},
+    }
+    feature_contract = {
+        "target": {"name": "logP47T", "source": "P47T", "transform": "log10"},
+        "forbidden_predictors": {
+            "target": ["P47T", "logP47T"],
+            "identifiers": ["CODUSU"],
+            "income_components": ["P21"],
+        },
+    }
+
+    _, card = run_experiment(experiment_config, feature_contract)
+
+    assert "AGLO_rk" in card["feature_columns"]
+    assert "Reg_rk" in card["feature_columns"]
+    assert {"P47T", "logP47T", "P21", "CODUSU"}.isdisjoint(card["feature_columns"])
+    assert card["feature_view"]["permuted_columns"] == ["AGLO_rk", "Reg_rk"]
+    assert card["feature_view"]["group_by_columns"] == ["AGLOMERADO", "Region"]
+    assert card["feature_view"]["permute_group_values"] == [
+        {
+            "column": "AGLO_rk",
+            "group_by": "AGLOMERADO",
+            "random_state": 42,
+            "number_of_groups": 3,
+            "group_to_value_mapping_one_to_one": True,
+            "warnings": [],
+        },
+        {
+            "column": "Reg_rk",
+            "group_by": "Region",
+            "random_state": 42,
+            "number_of_groups": 2,
+            "group_to_value_mapping_one_to_one": True,
+            "warnings": [],
+        },
+    ]
+
+    run_dir = Path(card["canonical_run_dir"])
+    feature_columns = json.loads((run_dir / "feature_columns.json").read_text(encoding="utf-8"))
+    assert "AGLO_rk" in feature_columns
+    assert "Reg_rk" in feature_columns
+
+    sample = pd.read_csv(run_dir / "artifacts" / "training_frame_sample.csv")
+    aglo_mapping = sample.groupby("AGLOMERADO")["AGLO_rk"].unique().map(list).to_dict()
+    region_mapping = sample.groupby("Region")["Reg_rk"].unique().map(list).to_dict()
+    assert all(len(values) == 1 for values in aglo_mapping.values())
+    assert all(len(values) == 1 for values in region_mapping.values())
+    final_aglo_mapping = {group: values[0] for group, values in aglo_mapping.items()}
+    final_region_mapping = {group: values[0] for group, values in region_mapping.items()}
+    assert set(final_aglo_mapping.values()) == set(aglo_rank.values())
+    assert set(final_region_mapping.values()) == set(region_rank.values())
+    assert any(final_aglo_mapping[group] != aglo_rank[group] for group in aglo_rank)
+    assert any(final_region_mapping[group] != region_rank[group] for group in region_rank)
+    assert final_aglo_mapping == {"aglo_a": 0.9, "aglo_b": 0.5, "aglo_c": 0.1}
+    assert final_region_mapping == {"region_a": 0.8, "region_b": 0.2}
+    assert {"P47T", "P21", "CODUSU"}.isdisjoint(sample.columns)
