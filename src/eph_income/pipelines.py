@@ -31,55 +31,136 @@ def infer_feature_types(features: pd.DataFrame) -> tuple[list[str], list[str]]:
     return numeric_columns, categorical_columns
 
 
-def make_preprocessor(features: pd.DataFrame, *, scale_numeric: bool) -> ColumnTransformer:
+def _categorical_pipeline(*, drop_first: bool) -> Pipeline:
+    """Create a categorical pipeline with optional first-level dropping."""
+
+    return Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            (
+                "ohe",
+                OneHotEncoder(
+                    handle_unknown="ignore",
+                    sparse_output=False,
+                    drop="first" if drop_first else None,
+                ),
+            ),
+        ]
+    )
+
+
+def make_preprocessor(
+    features: pd.DataFrame,
+    *,
+    scale_numeric: bool,
+    drop_first_categorical_columns: set[str] | None = None,
+) -> ColumnTransformer:
     """Create preprocessing inside an sklearn pipeline."""
 
     numeric_columns, categorical_columns = infer_feature_types(features)
+    drop_first_categorical_columns = drop_first_categorical_columns or set()
+    categorical_drop_first_columns = [
+        column for column in categorical_columns if column in drop_first_categorical_columns
+    ]
+    categorical_full_columns = [
+        column for column in categorical_columns if column not in drop_first_categorical_columns
+    ]
+
     numeric_steps: list[tuple[str, Any]] = [("imputer", SimpleImputer(strategy="median"))]
     if scale_numeric:
         numeric_steps.append(("scaler", StandardScaler()))
     numeric_pipe = Pipeline(numeric_steps)
-    categorical_pipe = Pipeline(
-        [
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("ohe", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
-        ]
-    )
-    return ColumnTransformer(
-        [
-            ("num", numeric_pipe, numeric_columns),
-            ("cat", categorical_pipe, categorical_columns),
-        ],
-        remainder="drop",
-    )
+
+    transformers: list[tuple[str, Pipeline, list[str]]] = [("num", numeric_pipe, numeric_columns)]
+    if categorical_full_columns:
+        transformers.append(("cat", _categorical_pipeline(drop_first=False), categorical_full_columns))
+    if categorical_drop_first_columns:
+        transformers.append(
+            (
+                "cat_drop_first",
+                _categorical_pipeline(drop_first=True),
+                categorical_drop_first_columns,
+            )
+        )
+    return ColumnTransformer(transformers, remainder="drop")
 
 
-def make_model_pipeline(model_key: str, features: pd.DataFrame, random_state: int = 42) -> Pipeline:
+def make_model_pipeline(
+    model_key: str,
+    features: pd.DataFrame,
+    random_state: int = 42,
+    *,
+    drop_first_categorical_columns: set[str] | None = None,
+) -> Pipeline:
     """Build the configured sklearn pipeline for a model family."""
 
     if model_key == "linear_regression":
         return Pipeline(
-            [("preproc", make_preprocessor(features, scale_numeric=True)), ("reg", LinearRegression())]
+            [
+                (
+                    "preproc",
+                    make_preprocessor(
+                        features,
+                        scale_numeric=True,
+                        drop_first_categorical_columns=drop_first_categorical_columns,
+                    ),
+                ),
+                ("reg", LinearRegression()),
+            ]
         )
     if model_key == "ridge":
         return Pipeline(
-            [("preproc", make_preprocessor(features, scale_numeric=True)), ("reg", Ridge())]
+            [
+                (
+                    "preproc",
+                    make_preprocessor(
+                        features,
+                        scale_numeric=True,
+                        drop_first_categorical_columns=drop_first_categorical_columns,
+                    ),
+                ),
+                ("reg", Ridge()),
+            ]
         )
     if model_key == "lasso":
         return Pipeline(
-            [("preproc", make_preprocessor(features, scale_numeric=True)), ("reg", Lasso())]
+            [
+                (
+                    "preproc",
+                    make_preprocessor(
+                        features,
+                        scale_numeric=True,
+                        drop_first_categorical_columns=drop_first_categorical_columns,
+                    ),
+                ),
+                ("reg", Lasso()),
+            ]
         )
     if model_key == "hist_gradient_boosting":
         return Pipeline(
             [
-                ("preproc", make_preprocessor(features, scale_numeric=False)),
+                (
+                    "preproc",
+                    make_preprocessor(
+                        features,
+                        scale_numeric=False,
+                        drop_first_categorical_columns=drop_first_categorical_columns,
+                    ),
+                ),
                 ("reg", HistGradientBoostingRegressor(random_state=random_state)),
             ]
         )
     if model_key == "mlp":
         return Pipeline(
             [
-                ("preproc", make_preprocessor(features, scale_numeric=True)),
+                (
+                    "preproc",
+                    make_preprocessor(
+                        features,
+                        scale_numeric=True,
+                        drop_first_categorical_columns=drop_first_categorical_columns,
+                    ),
+                ),
                 ("reg", MLPRegressor(random_state=random_state)),
             ]
         )

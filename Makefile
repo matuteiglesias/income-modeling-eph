@@ -1,4 +1,4 @@
-.PHONY: help install validate lint test build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep run-hgb-quick-benchmark run-hgb-quick-with-geo-ranks run-hgb-quick-clean-geo run-hgb-quick-no-geo run-hgb-quick-shuffled-geo-ranks report build-diagnostics all
+.PHONY: help install validate lint test build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep run-hgb-quick-benchmark run-hgb-quick-with-geo-ranks run-hgb-quick-clean-geo run-hgb-quick-no-geo run-hgb-quick-shuffled-geo-ranks run-linear-region-fe run-linear-aglo-fe run-linear-year-fe run-linear-quarter-fe run-linear-aglo-year-fe report build-diagnostics all
 
 
 PYTHON ?= python3
@@ -28,6 +28,11 @@ help:
 	@echo "  make run-hgb-quick-clean-geo      Run HGB geography smoke dropping geo ranks"
 	@echo "  make run-hgb-quick-no-geo         Run HGB geography smoke dropping all geography columns"
 	@echo "  make run-hgb-quick-shuffled-geo-ranks Run HGB geography smoke with shuffled geo ranks"
+	@echo "  make run-linear-region-fe       Run Linear/Ridge Region fixed-effect smoke"
+	@echo "  make run-linear-aglo-fe         Run Linear/Ridge AGLOMERADO fixed-effect smoke"
+	@echo "  make run-linear-year-fe         Run Linear/Ridge ANO4 fixed-effect smoke"
+	@echo "  make run-linear-quarter-fe      Run Linear/Ridge TRIMESTRE fixed-effect smoke"
+	@echo "  make run-linear-aglo-year-fe    Run Linear/Ridge AGLOMERADO x ANO4 fixed-effect smoke"
 	@echo "  make report                      Build thesis-ready report artifacts from saved outputs"
 	@echo "  make build-diagnostics           Build diagnostics for RUN_DIR=reports/runs/<run_id> [SPLIT=test]"
 	@echo "  make all                         Build dataset, run baseline, and build report"
@@ -94,6 +99,21 @@ run-hgb-quick-no-geo:
 
 run-hgb-quick-shuffled-geo-ranks:
 	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_quick_shuffled_geo_ranks_v1.yaml ALLOW_FULL_RUN=1
+
+run-linear-region-fe:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_linear_region_fe_v1.yaml ALLOW_FULL_RUN=1
+
+run-linear-aglo-fe:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_linear_aglo_fe_v1.yaml ALLOW_FULL_RUN=1
+
+run-linear-year-fe:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_linear_year_fe_v1.yaml ALLOW_FULL_RUN=1
+
+run-linear-quarter-fe:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_linear_quarter_fe_v1.yaml ALLOW_FULL_RUN=1
+
+run-linear-aglo-year-fe:
+	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_linear_aglo_year_fe_v1.yaml ALLOW_FULL_RUN=1
 
 report:
 	$(PYTHON) scripts/03_build_report_artifacts.py
