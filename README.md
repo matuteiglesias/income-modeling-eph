@@ -22,6 +22,8 @@ make test
 python scripts/01_build_dataset.py --check-only
 make build-dataset
 make run-debug
+python scripts/02_run_baseline_experiment.py --config configs/experiment_baseline.yaml --allow-full-run
+make run-baseline
 ```
 
-The debug runtime intentionally uses a small sample and minimal model set. Full baseline training and thesis reporting are separate later states.
+The debug runtime intentionally uses a small sample and minimal model set. Full baseline training is enabled behind an explicit guard because the configured HistGradientBoostingRegressor and MLPRegressor grids can be expensive on the full processed dataset.

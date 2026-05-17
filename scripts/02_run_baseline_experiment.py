@@ -33,6 +33,11 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_FEATURE_CONTRACT_PATH,
         help="Path to feature contract YAML config.",
     )
+    parser.add_argument(
+        "--allow-full-run",
+        action="store_true",
+        help="Allow runtime.mode=full experiments; required unless the config explicitly allows them.",
+    )
     return parser.parse_args()
 
 
@@ -40,7 +45,9 @@ def main() -> None:
     args = parse_args()
     experiment_config = load_experiment_config(args.config)
     feature_contract = load_feature_contract(args.feature_contract)
-    comparison, card = run_experiment(experiment_config, feature_contract)
+    comparison, card = run_experiment(
+        experiment_config, feature_contract, allow_full_run=args.allow_full_run
+    )
     print(
         json.dumps(
             {

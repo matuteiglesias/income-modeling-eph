@@ -16,7 +16,7 @@ run-debug:
 	python scripts/02_run_baseline_experiment.py --config configs/experiment_debug.yaml
 
 run-baseline:
-	python scripts/02_run_baseline_experiment.py
+	python scripts/02_run_baseline_experiment.py --allow-full-run
 
 report:
 	python scripts/03_build_report_artifacts.py

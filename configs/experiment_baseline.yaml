@@ -2,6 +2,11 @@ experiment:
   id: baseline_income_prediction_v1
   random_seed: 42
 
+runtime:
+  mode: full
+  sample_n: null
+  allow_full_run: false
+
 data:
   input_files:
     "2022": data/annual_preprocessed_inputs/EPHARG_annual_input_22.csv
