@@ -134,8 +134,8 @@ def test_build_diagnostics_from_archived_run(tmp_path: Path) -> None:
         "residual_distribution_by_model.png",
         "ridge_alpha_curve.png",
     }
-    assert expected_plots.issubset({path.name for path in (run_dir / "plots").glob("*.png")})
-    assert not (run_dir / "plots" / "lasso_alpha_curve.png").exists()
+    assert expected_plots.issubset({path.name for path in (run_dir / "plots" / "test").glob("*.png")})
+    assert not (run_dir / "plots" / "test" / "lasso_alpha_curve.png").exists()
 
     notes = (run_dir / "diagnostics" / "diagnostics_build_notes.md").read_text(encoding="utf-8")
     assert "Skipped lasso_alpha_curve.png" in notes
@@ -167,4 +167,5 @@ def test_diagnostics_cli_accepts_run_dir_and_split(tmp_path: Path) -> None:
     payload = json.loads(completed.stdout)
     assert payload["split"] == "validation"
     assert Path(payload["notes_path"]).exists()
-    assert (run_dir / "plots" / "observed_vs_predicted_best_model.png").exists()
+    assert (run_dir / "plots" / "validation" / "observed_vs_predicted_best_model.png").exists()
+    assert not (run_dir / "plots" / "test" / "observed_vs_predicted_best_model.png").exists()

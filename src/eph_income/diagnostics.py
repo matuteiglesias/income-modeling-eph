@@ -449,8 +449,11 @@ def build_diagnostics(run_dir: str | Path, *, split: str = "test") -> dict[str, 
     """Build diagnostic tables and plots from archived run artifacts."""
 
     run_path = _as_path(run_dir)
+    if split not in PREDICTION_FILES:
+        raise ValueError(f"Unsupported split {split!r}. Expected one of: {sorted(PREDICTION_FILES)}")
+
     diagnostics_dir = run_path / "diagnostics"
-    plots_dir = run_path / "plots"
+    plots_dir = run_path / "plots" / split
     diagnostics_dir.mkdir(parents=True, exist_ok=True)
     plots_dir.mkdir(parents=True, exist_ok=True)
 
