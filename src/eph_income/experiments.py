@@ -133,6 +133,76 @@ def prepare_experiment_frame(
     return joined, feature_columns, target
 
 
+def _artifacts_mapping(experiment_config: Mapping[str, Any]) -> Mapping[str, Any]:
+    artifacts = experiment_config.get("artifacts", {})
+    return artifacts if isinstance(artifacts, Mapping) else {}
+
+
+def _write_training_frame_sample(
+    *,
+    run_dir: Path,
+    run_id: str,
+    train: pd.DataFrame,
+    feature_columns: list[str],
+    target: str,
+    experiment_config: Mapping[str, Any],
+    feature_contract: Mapping[str, Any],
+) -> dict[str, Path]:
+    """Write a deterministic training-frame sample for scientific inspection."""
+
+    artifacts_config = _artifacts_mapping(experiment_config)
+    configured_sample_n = artifacts_config.get("training_frame_sample_n", 10)
+    if configured_sample_n is None:
+        return {}
+
+    sample_n_requested = int(configured_sample_n)
+    if sample_n_requested <= 0:
+        return {}
+
+    forbidden = get_forbidden_predictors(feature_contract)
+    assert_no_forbidden_predictors(feature_columns, forbidden)
+
+    columns_written = [ROW_ID_COLUMN, "split", target, *feature_columns]
+    forbidden_sample_columns = sorted((set(columns_written) & forbidden) - {target})
+    if forbidden_sample_columns:
+        joined = ", ".join(forbidden_sample_columns)
+        raise ValueError(f"Forbidden predictors present in training-frame sample columns: {joined}")
+
+    missing_columns = [column for column in columns_written if column not in train.columns]
+    if missing_columns:
+        joined = ", ".join(missing_columns)
+        raise ValueError(f"Training-frame sample columns are missing from train split: {joined}")
+
+    random_seed = int(experiment_config.get("experiment", {}).get("random_seed", 42))
+    sample_n_written = min(sample_n_requested, len(train))
+    artifacts_dir = run_dir / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    sample_path = artifacts_dir / "training_frame_sample.csv"
+    metadata_path = artifacts_dir / "training_frame_sample_metadata.json"
+
+    sample = train[columns_written].sample(n=sample_n_written, random_state=random_seed)
+    sample = sample.sort_values(ROW_ID_COLUMN).reset_index(drop=True)
+    sample.to_csv(sample_path, index=False)
+
+    metadata = {
+        "run_id": run_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "sample_n_requested": sample_n_requested,
+        "sample_n_written": int(sample_n_written),
+        "source_split": "train",
+        "target": target,
+        "feature_count": int(len(feature_columns)),
+        "columns_written": columns_written,
+        "random_state": random_seed,
+        "note": "Sample drawn from the train split after runtime sampling and before model fitting.",
+    }
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
+    return {
+        "training_frame_sample": sample_path,
+        "training_frame_sample_metadata": metadata_path,
+    }
+
+
 def _evaluate(model: Any, features: pd.DataFrame, target: pd.Series) -> dict[str, float]:
     predictions = model.predict(features)
     return {
@@ -789,6 +859,15 @@ def run_experiment(
     (run_dir / "feature_columns.json").write_text(
         json.dumps(feature_columns, indent=2, sort_keys=True), encoding="utf-8"
     )
+    training_frame_sample_paths = _write_training_frame_sample(
+        run_dir=run_dir,
+        run_id=run_id,
+        train=train,
+        feature_columns=feature_columns,
+        target=target,
+        experiment_config=experiment_config,
+        feature_contract=feature_contract,
+    )
 
     diagnostics_config = experiment_config.get("diagnostics", {})
     write_coefficient_diagnostics = bool(
@@ -982,6 +1061,7 @@ def run_experiment(
     manifest_paths.update(hgb_plots)
     manifest_paths.update(hgb_sweep_plots)
     manifest_paths.update(hgb_sweep_markdown)
+    manifest_paths.update({key: str(path) for key, path in training_frame_sample_paths.items()})
     if output_path is not None:
         manifest_paths["model_comparison_convenience_copy"] = str(output_path)
 
@@ -1014,6 +1094,16 @@ def run_experiment(
         "canonical_run_dir": str(run_dir),
         "canonical_model_comparison": str(run_model_comparison_path),
         "run_manifest": str(run_dir / "run_manifest.json"),
+        "training_frame_sample": (
+            str(training_frame_sample_paths["training_frame_sample"])
+            if "training_frame_sample" in training_frame_sample_paths
+            else None
+        ),
+        "training_frame_sample_metadata": (
+            str(training_frame_sample_paths["training_frame_sample_metadata"])
+            if "training_frame_sample_metadata" in training_frame_sample_paths
+            else None
+        ),
     }
     run_card_path = run_dir / "experiment_card.json"
     run_card_path.write_text(json.dumps(card, indent=2, sort_keys=True), encoding="utf-8")

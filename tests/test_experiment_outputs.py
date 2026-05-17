@@ -218,6 +218,7 @@ def test_baseline_config_enables_all_state6_models() -> None:
         "sample_n": None,
         "allow_full_run": False,
     }
+    assert experiment_config["artifacts"] == {"training_frame_sample_n": 10}
     assert set(enabled_model_configs(experiment_config)) == {
         "linear_regression",
         "ridge",
@@ -225,6 +226,13 @@ def test_baseline_config_enables_all_state6_models() -> None:
         "hist_gradient_boosting",
         "mlp",
     }
+
+
+def test_debug_config_declares_training_frame_sample_artifact() -> None:
+    experiment_config = load_experiment_config("configs/experiment_debug.yaml")
+
+    assert experiment_config["runtime"]["mode"] == "debug"
+    assert experiment_config["artifacts"] == {"training_frame_sample_n": 10}
 
 
 def test_full_runtime_requires_explicit_allowance(tmp_path) -> None:
@@ -533,3 +541,143 @@ def test_targeted_hgb_sweep_configs_declare_single_question_grids() -> None:
     assert l2["experiment"]["id"] == "hgb_l2_sweep_v1"
     assert l2["diagnostics"] == {"sweep_type": "hgb_single_param", "primary_param": "l2_regularization"}
     assert l2_grid["reg__l2_regularization"] == [0.0, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0]
+
+
+def _training_frame_sample_test_inputs(tmp_path, *, artifacts=None, sample_n=None, enabled_models=None):
+    dataset_path = tmp_path / "modeling_dataset.parquet"
+    split_path = tmp_path / "split_assignments.csv"
+    runs_dir = tmp_path / "runs"
+    dataset = pd.DataFrame(
+        {
+            "row_id": range(30),
+            "logP47T": [1.0 + i * 0.01 for i in range(30)],
+            "ANO4": [2022, 2023, 2024] * 10,
+            "TRIMESTRE": [1, 2, 3, 4, 1] * 6,
+            "feature_num": range(30),
+            "feature_cat": ["a", "b", "c"] * 10,
+        }
+    )
+    dataset.to_parquet(dataset_path, index=False)
+    pd.DataFrame(
+        {
+            "row_id": range(30),
+            "split": ["train"] * 21 + ["test"] * 6 + ["validation"] * 3,
+        }
+    ).to_csv(split_path, index=False)
+
+    models = {
+        "linear_regression": {"enabled": True, "grid": {"reg__fit_intercept": [True]}},
+        "ridge": {"enabled": True, "grid": {"reg__alpha": [1.0], "reg__fit_intercept": [True]}},
+    }
+    if enabled_models is not None:
+        for model_key in models:
+            models[model_key]["enabled"] = model_key in enabled_models
+
+    experiment_config = {
+        "experiment": {"id": "training_frame_sample_test", "random_seed": 42},
+        "runtime": {"mode": "debug", "sample_n": sample_n},
+        "data": {
+            "processed_dataset": str(dataset_path),
+            "split_assignments": str(split_path),
+        },
+        "cv": {"folds": 2, "scoring": "r2"},
+        "models": models,
+        "outputs": {"runs_dir": str(runs_dir)},
+    }
+    if artifacts is not None:
+        experiment_config["artifacts"] = artifacts
+    feature_contract = {
+        "target": {"name": "logP47T", "source": "P47T", "transform": "log10"},
+        "forbidden_predictors": {
+            "target": ["P47T", "logP47T"],
+            "identifiers": ["CODUSU"],
+            "income_components": ["P21"],
+        },
+    }
+    return experiment_config, feature_contract
+
+
+def test_training_frame_sample_artifact_writes_schema_and_metadata(tmp_path) -> None:
+    experiment_config, feature_contract = _training_frame_sample_test_inputs(
+        tmp_path, artifacts={"training_frame_sample_n": 5}
+    )
+
+    _, card = run_experiment(experiment_config, feature_contract)
+
+    run_dir = Path(card["canonical_run_dir"])
+    sample_path = run_dir / "artifacts" / "training_frame_sample.csv"
+    metadata_path = run_dir / "artifacts" / "training_frame_sample_metadata.json"
+    assert sample_path.exists()
+    assert metadata_path.exists()
+
+    sample = pd.read_csv(sample_path)
+    expected_columns = ["row_id", "split", "logP47T", "ANO4", "TRIMESTRE", "feature_num", "feature_cat"]
+    assert sample.columns.tolist() == expected_columns
+    assert len(sample) == 5
+    assert set(sample["split"]) == {"train"}
+    assert {"P47T", "P21", "CODUSU"}.isdisjoint(sample.columns)
+    assert sample.columns.tolist().count("logP47T") == 1
+
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["run_id"] == card["run_id"]
+    assert metadata["sample_n_requested"] == 5
+    assert metadata["sample_n_written"] == 5
+    assert metadata["source_split"] == "train"
+    assert metadata["target"] == "logP47T"
+    assert metadata["feature_count"] == 4
+    assert metadata["columns_written"] == expected_columns
+    assert metadata["random_state"] == 42
+    assert metadata["note"] == "Sample drawn from the train split after runtime sampling and before model fitting."
+
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["paths"]["training_frame_sample"] == str(sample_path)
+    assert manifest["paths"]["training_frame_sample_metadata"] == str(metadata_path)
+    assert card["training_frame_sample"] == str(sample_path)
+    assert card["training_frame_sample_metadata"] == str(metadata_path)
+
+
+def test_training_frame_sample_defaults_to_ten_rows_or_available_train_rows(tmp_path) -> None:
+    experiment_config, feature_contract = _training_frame_sample_test_inputs(tmp_path)
+
+    _, card = run_experiment(experiment_config, feature_contract)
+
+    run_dir = Path(card["canonical_run_dir"])
+    sample = pd.read_csv(run_dir / "artifacts" / "training_frame_sample.csv")
+    metadata = json.loads(
+        (run_dir / "artifacts" / "training_frame_sample_metadata.json").read_text(encoding="utf-8")
+    )
+    assert len(sample) == 10
+    assert metadata["sample_n_requested"] == 10
+    assert metadata["sample_n_written"] == 10
+
+
+def test_training_frame_sample_can_be_disabled(tmp_path) -> None:
+    experiment_config, feature_contract = _training_frame_sample_test_inputs(
+        tmp_path, artifacts={"training_frame_sample_n": 0}
+    )
+
+    _, card = run_experiment(experiment_config, feature_contract)
+
+    run_dir = Path(card["canonical_run_dir"])
+    assert not (run_dir / "artifacts" / "training_frame_sample.csv").exists()
+    assert not (run_dir / "artifacts" / "training_frame_sample_metadata.json").exists()
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert "training_frame_sample" not in manifest["paths"]
+    assert "training_frame_sample_metadata" not in manifest["paths"]
+    assert card["training_frame_sample"] is None
+    assert card["training_frame_sample_metadata"] is None
+
+
+def test_training_frame_sample_is_one_file_per_run_not_per_model(tmp_path) -> None:
+    experiment_config, feature_contract = _training_frame_sample_test_inputs(
+        tmp_path,
+        artifacts={"training_frame_sample_n": 3},
+        enabled_models=["linear_regression", "ridge"],
+    )
+
+    _, card = run_experiment(experiment_config, feature_contract)
+
+    run_dir = Path(card["canonical_run_dir"])
+    assert len(list((run_dir / "artifacts").glob("training_frame_sample.csv"))) == 1
+    assert len(list((run_dir / "artifacts").glob("training_frame_sample_metadata.json"))) == 1
+    assert len(list((run_dir / "cv_results").glob("*.csv"))) == 2
