@@ -32,6 +32,7 @@ from eph_income.observability import (
 )
 
 from eph_income.contracts import assert_no_forbidden_predictors, get_forbidden_predictors, validate_target_contract
+from eph_income.diagnostics import _write_hgb_sweep_diagnostics
 from eph_income.dataset import ROW_ID_COLUMN, get_metadata_path, resolve_project_path
 from eph_income.pipelines import MODEL_DISPLAY_NAMES, enabled_model_configs, make_model_pipeline
 from eph_income.splits import get_split_path, validate_split_assignments
@@ -849,6 +850,10 @@ def run_experiment(
 
         if model_key == "hist_gradient_boosting":
             model_artifact_paths.extend(_write_hgb_diagnostics(run_dir, cv_results).values())
+            sweep_diagnostic_paths, _ = _write_hgb_sweep_diagnostics(
+                run_dir, config=experiment_config, run_id=run_id
+            )
+            model_artifact_paths.extend(sweep_diagnostic_paths.values())
 
         if write_coefficient_diagnostics:
             coefficient_path = _write_best_coefficient_summary(
@@ -967,8 +972,16 @@ def run_experiment(
     hgb_plots = {
         path.stem: str(path) for path in sorted((run_dir / "plots" / "hgb").glob("hgb_*.png"))
     }
+    hgb_sweep_plots = {
+        path.stem: str(path) for path in sorted((run_dir / "plots" / "hgb_sweeps").glob("hgb_*.png"))
+    }
+    hgb_sweep_markdown = {
+        path.stem: str(path) for path in sorted((run_dir / "diagnostics").glob("hgb_sweep*.md"))
+    }
     manifest_paths.update(hgb_diagnostics)
     manifest_paths.update(hgb_plots)
+    manifest_paths.update(hgb_sweep_plots)
+    manifest_paths.update(hgb_sweep_markdown)
     if output_path is not None:
         manifest_paths["model_comparison_convenience_copy"] = str(output_path)
 
