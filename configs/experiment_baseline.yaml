@@ -65,6 +65,9 @@ models:
       reg__batch_size: [64, 128]
       reg__max_iter: [100, 200]
 
+artifacts:
+  training_frame_sample_n: 10
+
 outputs:
   model_comparison: reports/tables/model_comparison.csv
   experiment_card: reports/experiment_cards/baseline_income_prediction.json
