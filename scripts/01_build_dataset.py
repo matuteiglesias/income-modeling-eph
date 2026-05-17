@@ -21,6 +21,7 @@ from eph_income.config import (  # noqa: E402
 )
 from eph_income.contracts import validate_target_contract, validate_temporal_features  # noqa: E402
 from eph_income.dataset import build_modeling_dataset, validate_dataset_inputs  # noqa: E402
+from eph_income.splits import load_or_create_split_assignments, split_proportions  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,6 +41,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Validate configs and paths without reading full data or writing outputs.",
     )
+    parser.add_argument(
+        "--overwrite-splits",
+        action="store_true",
+        help="Recreate split assignments even if a valid split file already exists.",
+    )
     return parser.parse_args()
 
 
@@ -57,12 +63,17 @@ def main() -> None:
         return
 
     dataset, metadata = build_modeling_dataset(experiment_config, feature_contract)
+    split_assignments = load_or_create_split_assignments(
+        dataset, experiment_config, overwrite=args.overwrite_splits
+    )
     print(
         json.dumps(
             {
                 "processed_dataset": metadata["processed_dataset"],
                 "rows": int(len(dataset)),
                 "metadata": metadata["metadata"],
+                "split_assignments": experiment_config["data"]["split_assignments"],
+                "split_proportions": split_proportions(split_assignments),
             },
             indent=2,
             sort_keys=True,

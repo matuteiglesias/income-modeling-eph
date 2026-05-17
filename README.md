@@ -21,6 +21,7 @@ Expected input artifacts:
 make test
 python scripts/01_build_dataset.py --check-only
 make build-dataset
+make run-debug
 ```
 
-Full feature engineering, split creation, and model training are intentionally separate later states.
+The debug runtime intentionally uses a small sample and minimal model set. Full baseline training and thesis reporting are separate later states.

@@ -30,9 +30,10 @@ def test_forbidden_predictor_groups_flatten_correctly() -> None:
     forbidden = get_forbidden_predictors(contract)
 
     assert {"P47T", "logP47T", "P21", "CODUSU"}.issubset(forbidden)
-    assert {"Q", "T_VI", "logTOT_P12", "INGRESO_SBS"}.issubset(forbidden)
+    assert {"Q", "source_year", "INGRESO", "T_VI", "logTOT_P12", "INGRESO_SBS"}.issubset(forbidden)
     assert contract["forbidden_predictors"]["identifiers"] == ["CODUSU"]
-    assert contract["forbidden_predictors"]["temporal_derived"] == ["Q"]
+    assert contract["forbidden_predictors"]["temporal_derived"] == ["Q", "source_year"]
+    assert contract["forbidden_predictors"]["sample_indicators"] == ["INGRESO"]
 
 
 def test_assert_no_forbidden_predictors_rejects_p47t() -> None:

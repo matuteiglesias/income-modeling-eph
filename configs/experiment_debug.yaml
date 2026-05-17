@@ -1,0 +1,69 @@
+experiment:
+  id: debug_experiment
+  random_seed: 42
+
+runtime:
+  mode: debug
+  sample_n: 5000
+  enabled_models:
+    - linear_regression
+    - ridge
+
+data:
+  input_files:
+    "2022": data/annual_preprocessed_inputs/EPHARG_annual_input_22.csv
+    "2023": data/annual_preprocessed_inputs/EPHARG_annual_input_23.csv
+    "2024": data/annual_preprocessed_inputs/EPHARG_annual_input_24.csv
+    "2025": data/annual_preprocessed_inputs/EPHARG_annual_input_25.csv
+  processed_dataset: data/processed/modeling_dataset.parquet
+  split_assignments: data/processed/split_assignments.csv
+
+split:
+  train_size: 0.70
+  test_size: 0.20
+  validation_size: 0.10
+  strategy: random_individual
+  random_state: 42
+
+cv:
+  folds: 2
+  scoring: r2
+
+models:
+  linear_regression:
+    enabled: true
+    grid:
+      reg__fit_intercept: [true]
+
+  ridge:
+    enabled: true
+    grid:
+      reg__alpha: [2, 5]
+      reg__fit_intercept: [true]
+
+  lasso:
+    enabled: false
+    grid:
+      reg__alpha: [0.0025]
+      reg__fit_intercept: [true]
+
+  hist_gradient_boosting:
+    enabled: false
+    grid:
+      reg__max_iter: [100]
+      reg__learning_rate: [0.1]
+      reg__max_leaf_nodes: [200]
+      reg__min_samples_leaf: [15]
+      reg__l2_regularization: [0]
+
+  mlp:
+    enabled: false
+    grid:
+      reg__hidden_layer_sizes:
+        - [64, 32]
+      reg__batch_size: [64]
+      reg__max_iter: [100]
+
+outputs:
+  model_comparison: reports/tables/model_comparison_debug.csv
+  experiment_card: reports/experiment_cards/debug_experiment.json

@@ -15,6 +15,9 @@ forbidden_predictors:
     - CODUSU
   temporal_derived:
     - Q
+    - source_year
+  sample_indicators:
+    - INGRESO
   target:
     - P47T
     - logP47T

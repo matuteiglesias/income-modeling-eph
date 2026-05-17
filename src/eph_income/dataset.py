@@ -1,10 +1,10 @@
 """First-stage dataset builder for the baseline EPH income experiment.
 
-This module implements only the State 3a dataset work: loading configured annual
-files, applying the known 2024/2025 harmonization drops, filtering the target
-sample, constructing ``logP47T``, creating a stable ``row_id``, and writing
-metadata. It intentionally does not implement full legacy feature engineering,
-split assignment, or model training.
+This module loads configured annual files, applies the known 2024/2025
+harmonization drops, runs second-stage modeling feature engineering, filters the
+target sample, constructs ``logP47T``, creates a stable ``row_id``, and writes
+metadata. It intentionally does not implement raw EPH preprocessing or model
+training.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ from eph_income.contracts import (
     get_forbidden_predictors,
     validate_target_contract,
 )
+from eph_income.features import apply_second_stage_features
 
 KNOWN_2024_2025_COLUMN_DROPS = (
     "V2_01_M",
@@ -224,12 +225,20 @@ def build_modeling_dataset(
     harmonized, harmonization_drops = harmonize_annual_files(annual_frames)
     concatenated = concatenate_annual_files(harmonized)
     row_count_before_filters = int(len(concatenated))
-    filtered, inclusion_criteria = apply_inclusion_criteria(concatenated, feature_contract)
+    with_features, feature_metadata = apply_second_stage_features(concatenated)
+    filtered, inclusion_criteria = apply_inclusion_criteria(with_features, feature_contract)
     with_target = construct_target(filtered, feature_contract)
     with_row_id = add_stable_row_id(with_target)
     modeling_dataset, excluded_forbidden, forbidden_check_passed = select_modeling_columns(
         with_row_id, feature_contract
     )
+    model_feature_frame = modeling_dataset.drop(columns=[ROW_ID_COLUMN, target["name"]])
+    model_categorical_columns = model_feature_frame.select_dtypes(
+        include=["category", "object", "string"]
+    ).columns.tolist()
+    model_numeric_columns = model_feature_frame.select_dtypes(
+        include=["number", "bool"]
+    ).columns.tolist()
 
     data_config = experiment_config.get("data", {})
     default_output = data_config.get("processed_dataset")
@@ -259,6 +268,13 @@ def build_modeling_dataset(
             "known_2024_2025_column_drops": list(KNOWN_2024_2025_COLUMN_DROPS),
             "dropped_columns_by_year": harmonization_drops,
         },
+        "engineered_columns": feature_metadata.engineered_columns,
+        "dropped_columns": feature_metadata.dropped_columns,
+        "categorical_columns": model_categorical_columns,
+        "numeric_columns": model_numeric_columns,
+        "feature_count": int(len(model_feature_frame.columns)),
+        "temporal_columns_retained": [col for col in ["ANO4", "TRIMESTRE"] if col in modeling_dataset.columns],
+        "temporal_columns_excluded": [col for col in ["Q"] if col in excluded_forbidden],
         "excluded_forbidden_predictors": excluded_forbidden,
         "excluded_predictors_by_reason": feature_contract.get("forbidden_predictors", {}),
         "forbidden_predictor_check_passed": forbidden_check_passed,

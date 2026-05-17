@@ -97,7 +97,27 @@ def test_build_modeling_dataset_filters_training_samples_and_writes_metadata(tmp
     assert "P47T" not in dataset.columns
     assert "CODUSU" not in dataset.columns
     assert "Q" not in dataset.columns
-    assert "P21" not in dataset.columns
+    assert "source_year" not in dataset.columns
+    assert "INGRESO" not in dataset.columns
+    leakage_columns = {
+        "P21",
+        "T_VI",
+        "V12_M",
+        "V2_M",
+        "V3_M",
+        "V5_M",
+        "TOT_P12",
+        "PP08D1",
+        "logP21",
+        "logT_VI",
+        "logV12_M",
+        "logV2_M",
+        "logV3_M",
+        "logV5_M",
+        "logTOT_P12",
+        "logPP08D1",
+    }
+    assert leakage_columns.isdisjoint(dataset.columns)
 
     # Baseline temporal variables remain available for downstream modeling.
     assert "ANO4" in dataset.columns
@@ -119,3 +139,60 @@ def test_build_modeling_dataset_filters_training_samples_and_writes_metadata(tmp
     assert written_metadata["forbidden_predictor_check_passed"] is True
     assert written_metadata["input_artifact_type"] == "annual_preprocessed_eph_inputs"
     assert written_metadata["upstream_input_files"] == written_metadata["input_files"]
+
+
+def test_second_stage_feature_engineering_constructs_required_features() -> None:
+    from eph_income.features import apply_second_stage_features
+
+    raw = pd.DataFrame(
+        {
+            "CODUSU": ["h1", "h1", "h1", "h2"],
+            "P03": [2, 10, 70, 25],
+            "P09": [2, 4, 0, 5],
+            "H10": [1, 1, 1, 2],
+            "H11": [1, 1, 1, 2],
+            "H12": [1, 1, 1, 3],
+            "PP07G1": [1, 1, 1, 1],
+            "PP07G2": [1, 1, 1, 1],
+            "PP07G3": [1, 1, 1, 1],
+            "PP07G4": [1, 1, 1, 1],
+            "PP07H": [1, 1, 1, 1],
+            "PP07I": [1, 1, 1, 1],
+            "PP07J": [1, 1, 1, 1],
+            "PP07K": [1, 1, 1, 1],
+            "P07": [1, 1, 1, 1],
+            "P08": [1, 1, 1, 1],
+            "PP07G_59": [1, 5, 5, 1],
+            "P21": [100, 0, 10, 20],
+            "T_VI": [0, 0, 0, 0],
+            "V12_M": [0, 0, 0, 0],
+            "V2_M": [0, 0, 0, 0],
+            "V3_M": [0, 0, 0, 0],
+            "V5_M": [0, 0, 0, 0],
+            "TOT_P12": [0, 0, 0, 0],
+            "PP08D1": [0, 0, 0, 0],
+            "ANO4": [2022, 2022, 2022, 2023],
+            "TRIMESTRE": [1, 1, 1, 2],
+        }
+    )
+
+    engineered, metadata = apply_second_stage_features(raw)
+
+    assert engineered.loc[0, "sanitacion_nivel"] == 2
+    assert engineered.loc[3, "sanitacion_nivel"] == 0
+    assert "H10" not in engineered.columns
+    assert "H11" not in engineered.columns
+    assert "H12" not in engineered.columns
+    assert "PP07G1" not in engineered.columns
+    assert "P07" not in engineered.columns
+    assert engineered.loc[0, "PP07G_59"] == 0
+
+    h1 = engineered[engineered["CODUSU"] == "h1"].iloc[0]
+    assert h1["Personas_0-3"] == 1
+    assert h1["Personas_9-12"] == 1
+    assert h1["Personas_65+"] == 1
+    assert h1["Max_Nivel_Educativo"] == 4
+    assert "logP21" in engineered.columns
+    assert "sanitacion_nivel" in metadata.engineered_columns
+    assert "ANO4" in metadata.categorical_columns
+    assert "TRIMESTRE" in metadata.categorical_columns
