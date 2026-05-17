@@ -24,6 +24,13 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.base import clone
 from sklearn.model_selection import GridSearchCV
 
+from eph_income.observability import (
+    grid_configuration_count,
+    heartbeat,
+    log_model_fit_end,
+    log_model_fit_start,
+)
+
 from eph_income.contracts import assert_no_forbidden_predictors, get_forbidden_predictors, validate_target_contract
 from eph_income.dataset import ROW_ID_COLUMN, get_metadata_path, resolve_project_path
 from eph_income.pipelines import MODEL_DISPLAY_NAMES, enabled_model_configs, make_model_pipeline
@@ -157,6 +164,19 @@ def _validate_runtime_mode(experiment_config: Mapping[str, Any], *, allow_full_r
             "Pass --allow-full-run or set runtime.allow_full_run: true in the config."
         )
     return mode
+
+
+def _heartbeat_interval_seconds(experiment_config: Mapping[str, Any]) -> float:
+    """Return configured heartbeat interval, defaulting to 10 seconds."""
+
+    runtime = _runtime_mapping(experiment_config)
+    value = runtime.get("heartbeat_interval_seconds", 10)
+    if value is None:
+        return 10.0
+    interval = float(value)
+    if interval < 0:
+        raise ValueError("runtime.heartbeat_interval_seconds must be non-negative.")
+    return interval
 
 
 def _validate_feature_count_consistency(comparison: pd.DataFrame) -> None:
@@ -754,6 +774,7 @@ def run_experiment(
 
     cv_folds = int(experiment_config.get("cv", {}).get("folds", 5))
     scoring = str(experiment_config.get("cv", {}).get("scoring", "r2"))
+    heartbeat_interval = _heartbeat_interval_seconds(experiment_config)
     random_seed = int(experiment_config.get("experiment", {}).get("random_seed", 42))
 
     _write_yaml_snapshot(run_dir / "config_used.yaml", experiment_config)
@@ -791,25 +812,42 @@ def run_experiment(
             n_jobs=None,
             return_train_score=return_train_score,
         )
+        grid_configurations = grid_configuration_count(grid)
+        log_model_fit_start(
+            run_id=run_id,
+            model_name=model_name,
+            grid_configurations=grid_configurations,
+            cv_folds=cv_folds,
+            train_rows=len(train),
+            feature_count=len(feature_columns),
+        )
         start = time.perf_counter()
-        search.fit(train[feature_columns], train[target])
+        with heartbeat(
+            f"GridSearchCV model={model_name} run_id={run_id}",
+            interval_seconds=heartbeat_interval,
+        ):
+            search.fit(train[feature_columns], train[target])
         fit_time = time.perf_counter() - start
 
         cv_results = pd.DataFrame(search.cv_results_)
         cv_results.insert(0, "run_id", run_id)
         cv_results.insert(1, "model", model_name)
-        cv_results.to_csv(run_dir / "cv_results" / f"{model_name}.csv", index=False)
+        cv_path = run_dir / "cv_results" / f"{model_name}.csv"
+        cv_results.to_csv(cv_path, index=False)
+        model_artifact_paths: list[Path] = [cv_path]
 
         if model_key == "hist_gradient_boosting":
-            _write_hgb_diagnostics(run_dir, cv_results)
+            model_artifact_paths.extend(_write_hgb_diagnostics(run_dir, cv_results).values())
 
         if write_coefficient_diagnostics:
-            _write_best_coefficient_summary(
+            coefficient_path = _write_best_coefficient_summary(
                 run_dir=run_dir,
                 model_name=model_name,
                 run_id=run_id,
                 estimator=search.best_estimator_,
             )
+            if coefficient_path is not None:
+                model_artifact_paths.append(coefficient_path)
             path_summary = _regularization_path_summary(
                 model_key=model_key,
                 model_name=model_name,
@@ -821,11 +859,28 @@ def run_experiment(
                 target=target,
             )
             if path_summary is not None:
+                path_summary_path = (
+                    run_dir / "diagnostics" / f"{model_name}_regularization_path_summary.csv"
+                )
                 path_summary.to_csv(
-                    run_dir / "diagnostics" / f"{model_name}_regularization_path_summary.csv",
+                    path_summary_path,
                     index=False,
                 )
-                _write_regularization_plots(run_dir, model_name, path_summary)
+                model_artifact_paths.append(path_summary_path)
+                model_artifact_paths.extend(
+                    _write_regularization_plots(run_dir, model_name, path_summary).values()
+                )
+
+        best_index = int(search.best_index_)
+        best_cv_score = float(search.cv_results_["mean_test_score"][best_index])
+        log_model_fit_end(
+            run_id=run_id,
+            model_name=model_name,
+            elapsed_seconds=fit_time,
+            best_params=search.best_params_,
+            best_cv_score=best_cv_score,
+            artifact_paths=model_artifact_paths,
+        )
 
         test_metrics = _evaluate(search.best_estimator_, test[feature_columns], test[target])
         validation_metrics = _evaluate(
@@ -843,13 +898,12 @@ def run_experiment(
                     estimator=search.best_estimator_,
                 )
             )
-        best_index = int(search.best_index_)
         rows.append(
             {
                 "model": model_name,
                 "best_params": json.dumps(search.best_params_, sort_keys=True),
                 "feature_count": int(len(feature_columns)),
-                "cv_r2_mean": float(search.cv_results_["mean_test_score"][best_index]),
+                "cv_r2_mean": best_cv_score,
                 "cv_r2_std": float(search.cv_results_["std_test_score"][best_index]),
                 "test_r2": test_metrics["r2"],
                 "test_mae": test_metrics["mae"],
