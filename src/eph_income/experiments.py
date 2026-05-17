@@ -31,7 +31,11 @@ from eph_income.observability import (
     log_model_fit_start,
 )
 
-from eph_income.contracts import assert_no_forbidden_predictors, get_forbidden_predictors, validate_target_contract
+from eph_income.contracts import (
+    assert_no_forbidden_predictors,
+    get_forbidden_predictors,
+    validate_target_contract,
+)
 from eph_income.diagnostics import _write_hgb_sweep_diagnostics
 from eph_income.dataset import ROW_ID_COLUMN, get_metadata_path, resolve_project_path
 from eph_income.pipelines import MODEL_DISPLAY_NAMES, enabled_model_configs, make_model_pipeline
@@ -61,7 +65,9 @@ def load_processed_dataset(experiment_config: Mapping[str, Any]) -> pd.DataFrame
     return pd.read_parquet(path)
 
 
-def load_split_assignments(experiment_config: Mapping[str, Any], dataset: pd.DataFrame) -> pd.DataFrame:
+def load_split_assignments(
+    experiment_config: Mapping[str, Any], dataset: pd.DataFrame
+) -> pd.DataFrame:
     path = get_split_path(experiment_config)
     if not path.exists():
         raise FileNotFoundError(f"Split assignments do not exist: {path}")
@@ -128,9 +134,159 @@ def prepare_experiment_frame(
 
     target = validate_target_contract(feature_contract)["name"]
     forbidden = get_forbidden_predictors(feature_contract)
-    feature_columns = [column for column in dataset.columns if column not in {ROW_ID_COLUMN, target}]
+    feature_columns = [
+        column for column in dataset.columns if column not in {ROW_ID_COLUMN, target}
+    ]
     assert_no_forbidden_predictors(feature_columns, forbidden)
     return joined, feature_columns, target
+
+
+def _feature_view_mapping(experiment_config: Mapping[str, Any]) -> Mapping[str, Any]:
+    feature_view = experiment_config.get("feature_view", {})
+    return feature_view if isinstance(feature_view, Mapping) else {}
+
+
+def _deterministic_group_value(values: pd.Series) -> Any:
+    """Return a deterministic representative value for one group."""
+
+    counts = values.value_counts(dropna=False)
+    max_count = counts.max()
+    candidates = counts[counts == max_count].index.tolist()
+    return sorted(candidates, key=lambda value: (str(type(value)), str(value)))[0]
+
+
+def _apply_group_value_permutation(
+    frame: pd.DataFrame, spec: Mapping[str, Any]
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Permute one feature column's group-level values across group categories."""
+
+    column = str(spec.get("column"))
+    group_by = str(spec.get("group_by"))
+    random_state = int(spec.get("random_state", 42))
+    metadata: dict[str, Any] = {
+        "column": column,
+        "group_by": group_by,
+        "random_state": random_state,
+        "number_of_groups": 0,
+        "group_to_value_mapping_one_to_one": True,
+        "warnings": [],
+    }
+
+    missing_columns = [name for name in [column, group_by] if name not in frame.columns]
+    if missing_columns:
+        metadata["warnings"].append(
+            f"Skipping permutation because columns are missing: {', '.join(missing_columns)}"
+        )
+        metadata["missing_columns"] = missing_columns
+        return frame, metadata
+
+    group_values = []
+    warning_groups = []
+    grouped = frame.groupby(group_by, sort=True, dropna=False)[column]
+    for group, values in grouped:
+        unique_count = int(values.nunique(dropna=False))
+        if unique_count > 1:
+            warning_groups.append(group)
+        group_values.append(
+            {
+                group_by: group,
+                "__feature_view_value": _deterministic_group_value(values),
+            }
+        )
+
+    value_frame = pd.DataFrame(group_values)
+    metadata["number_of_groups"] = int(len(value_frame))
+    metadata["group_to_value_mapping_one_to_one"] = not warning_groups
+    if warning_groups:
+        metadata["warnings"].append(
+            f"Column {column} has multiple values within {len(warning_groups)} {group_by} groups; "
+            "using a deterministic modal value before permutation."
+        )
+
+    if value_frame.empty:
+        return frame.copy(), metadata
+
+    permutation = np.random.default_rng(random_state).permutation(len(value_frame))
+    if len(value_frame) > 1 and np.array_equal(permutation, np.arange(len(value_frame))):
+        permutation = np.roll(permutation, 1)
+    value_frame["__feature_view_permuted_value"] = value_frame["__feature_view_value"].to_numpy()[
+        permutation
+    ]
+
+    permuted = frame.merge(
+        value_frame[[group_by, "__feature_view_permuted_value"]],
+        on=group_by,
+        how="left",
+        sort=False,
+        validate="many_to_one",
+    )
+    permuted[column] = permuted["__feature_view_permuted_value"]
+    permuted = permuted.drop(columns=["__feature_view_permuted_value"])
+    return permuted, metadata
+
+
+def apply_feature_view(
+    *,
+    experiment_config: Mapping[str, Any],
+    feature_contract: Mapping[str, Any],
+    joined: pd.DataFrame,
+    feature_columns: list[str],
+) -> tuple[pd.DataFrame, list[str], dict[str, Any]]:
+    """Apply experiment-level feature-view transformations before model fitting.
+
+    Feature views are applied after the processed dataset, split assignments, and runtime
+    sample have been established. The processed dataset is not mutated; the returned
+    experiment frame and feature list are the final inputs used for training and
+    artifacts.
+    """
+
+    feature_view = _feature_view_mapping(experiment_config)
+    drop_columns = feature_view.get("drop_columns", [])
+    if drop_columns is None:
+        drop_columns = []
+    if not isinstance(drop_columns, list):
+        raise TypeError("feature_view.drop_columns must be a list when provided.")
+
+    permutation_specs = feature_view.get("permute_group_values", [])
+    if permutation_specs is None:
+        permutation_specs = []
+    if not isinstance(permutation_specs, list):
+        raise TypeError("feature_view.permute_group_values must be a list when provided.")
+
+    viewed = joined.copy()
+    permutation_metadata = []
+    for spec in permutation_specs:
+        if not isinstance(spec, Mapping):
+            raise TypeError("Each feature_view.permute_group_values entry must be a mapping.")
+        viewed, metadata = _apply_group_value_permutation(viewed, spec)
+        permutation_metadata.append(metadata)
+
+    requested_drop_columns = [str(column) for column in drop_columns]
+    feature_column_set = set(feature_columns)
+    dropped_columns_present = [
+        column for column in requested_drop_columns if column in feature_column_set
+    ]
+    dropped_columns_missing = [
+        column for column in requested_drop_columns if column not in feature_column_set
+    ]
+    dropped_column_set = set(dropped_columns_present)
+    final_feature_columns = [
+        column for column in feature_columns if column not in dropped_column_set
+    ]
+
+    forbidden = get_forbidden_predictors(feature_contract)
+    assert_no_forbidden_predictors(final_feature_columns, forbidden)
+
+    metadata = {
+        "name": feature_view.get("name"),
+        "drop_columns": requested_drop_columns,
+        "dropped_columns_present": dropped_columns_present,
+        "dropped_columns_missing": dropped_columns_missing,
+        "permute_group_values": permutation_metadata,
+        "permuted_columns": [item["column"] for item in permutation_metadata],
+        "group_by_columns": [item["group_by"] for item in permutation_metadata],
+    }
+    return viewed, final_feature_columns, metadata
 
 
 def _artifacts_mapping(experiment_config: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -286,7 +442,9 @@ def _prepare_run_directory(experiment_config: Mapping[str, Any], run_id: str) ->
 
 
 def _write_yaml_snapshot(path: Path, data: Mapping[str, Any]) -> None:
-    path.write_text(yaml.safe_dump(dict(data), sort_keys=False, allow_unicode=True), encoding="utf-8")
+    path.write_text(
+        yaml.safe_dump(dict(data), sort_keys=False, allow_unicode=True), encoding="utf-8"
+    )
 
 
 def _sha256_file(path: Path) -> str | None:
@@ -317,9 +475,15 @@ def _make_dataset_card(
     processed_path = _resolve_output_path(experiment_config["data"]["processed_dataset"])
     split_path = get_split_path(experiment_config)
     metadata = _load_dataset_metadata(experiment_config)
-    split_counts = joined["split"].value_counts().reindex(["train", "test", "validation"], fill_value=0)
+    split_counts = (
+        joined["split"].value_counts().reindex(["train", "test", "validation"], fill_value=0)
+    )
     data_config = experiment_config.get("data", {})
-    source = data_config.get("input_files") or metadata.get("input_files") or metadata.get("upstream_input_files")
+    source = (
+        data_config.get("input_files")
+        or metadata.get("input_files")
+        or metadata.get("upstream_input_files")
+    )
     return {
         "dataset_name": "modeling_dataset",
         "source": source,
@@ -375,7 +539,8 @@ def _metrics_long(comparison: pd.DataFrame, run_id: str) -> pd.DataFrame:
     metric_columns = [
         column
         for column in comparison.columns
-        if column not in {"model", "best_params"} and pd.api.types.is_numeric_dtype(comparison[column])
+        if column not in {"model", "best_params"}
+        and pd.api.types.is_numeric_dtype(comparison[column])
     ]
     long = comparison.melt(
         id_vars=["model"], value_vars=metric_columns, var_name="metric", value_name="value"
@@ -384,13 +549,17 @@ def _metrics_long(comparison: pd.DataFrame, run_id: str) -> pd.DataFrame:
     return long
 
 
-def _write_predictions(predictions_by_split: dict[str, list[pd.DataFrame]], run_dir: Path) -> dict[str, Path]:
+def _write_predictions(
+    predictions_by_split: dict[str, list[pd.DataFrame]], run_dir: Path
+) -> dict[str, Path]:
     written: dict[str, Path] = {}
     for split_name in ["test", "validation"]:
         predictions = pd.concat(predictions_by_split[split_name], ignore_index=True)
         missing = sorted(set(PREDICTION_COLUMNS) - set(predictions.columns))
         if missing:
-            raise ValueError("Prediction artifact is missing required columns: " + ", ".join(missing))
+            raise ValueError(
+                "Prediction artifact is missing required columns: " + ", ".join(missing)
+            )
         path = run_dir / "predictions" / f"{split_name}_predictions.parquet"
         predictions.to_parquet(path, index=False)
         written[split_name] = path
@@ -477,7 +646,9 @@ def _coefficient_table(estimator: Any) -> pd.DataFrame | None:
     coefficients = np.ravel(regressor.coef_).astype(float)
     preprocessor = estimator.named_steps.get("preproc")
     try:
-        feature_names = list(preprocessor.get_feature_names_out()) if preprocessor is not None else []
+        feature_names = (
+            list(preprocessor.get_feature_names_out()) if preprocessor is not None else []
+        )
     except Exception:  # noqa: BLE001 - coefficient diagnostics should not fail a completed fit.
         feature_names = []
     if len(feature_names) != len(coefficients):
@@ -561,7 +732,11 @@ def _regularization_path_summary(
         norms = _coefficient_norms(estimator)
         if norms is None:
             continue
-        train_score = cv_results.loc[row_index, "mean_train_score"] if "mean_train_score" in cv_results.columns else np.nan
+        train_score = (
+            cv_results.loc[row_index, "mean_train_score"]
+            if "mean_train_score" in cv_results.columns
+            else np.nan
+        )
         rows.append(
             {
                 "run_id": run_id,
@@ -603,7 +778,9 @@ def _plot_regularization_line(
     plt.close(fig)
 
 
-def _write_regularization_plots(run_dir: Path, model_name: str, path_summary: pd.DataFrame) -> dict[str, Path]:
+def _write_regularization_plots(
+    run_dir: Path, model_name: str, path_summary: pd.DataFrame
+) -> dict[str, Path]:
     model_slug = model_name.lower()
     plots_dir = run_dir / "plots" / "regularization"
     plots_dir.mkdir(parents=True, exist_ok=True)
@@ -698,7 +875,9 @@ def _hgb_cv_results_summary(cv_results: pd.DataFrame) -> pd.DataFrame:
                 "min_samples_leaf": _hgb_param_value(row, "min_samples_leaf"),
                 "l2_regularization": _hgb_param_value(row, "l2_regularization"),
                 "early_stopping": _hgb_param_value(row, "early_stopping"),
-                "mean_train_score": float(mean_train_score) if pd.notna(mean_train_score) else np.nan,
+                "mean_train_score": float(mean_train_score)
+                if pd.notna(mean_train_score)
+                else np.nan,
                 "mean_test_score": float(mean_test_score) if pd.notna(mean_test_score) else np.nan,
                 "std_test_score": float(row.get("std_test_score", np.nan)),
                 "overfit_gap": (
@@ -725,9 +904,9 @@ def _plot_hgb_learning_rate_vs_max_iter(summary: pd.DataFrame, output_path: Path
     plot_frame = _numeric_plot_frame(summary, ["learning_rate", "max_iter", "mean_test_score"])
     if plot_frame.empty:
         return
-    grouped = (
-        plot_frame.groupby(["learning_rate", "max_iter"], as_index=False)["mean_test_score"].mean()
-    )
+    grouped = plot_frame.groupby(["learning_rate", "max_iter"], as_index=False)[
+        "mean_test_score"
+    ].mean()
     fig, ax = plt.subplots(figsize=(7, 5))
     for learning_rate, group in grouped.groupby("learning_rate"):
         group = group.sort_values("max_iter")
@@ -767,7 +946,9 @@ def _plot_hgb_param_vs_cv_r2(summary: pd.DataFrame, param: str, output_path: Pat
     plt.close(fig)
 
 
-def _plot_hgb_train_vs_cv_top_configs(summary: pd.DataFrame, output_path: Path, top_n: int = 20) -> None:
+def _plot_hgb_train_vs_cv_top_configs(
+    summary: pd.DataFrame, output_path: Path, top_n: int = 20
+) -> None:
     plot_frame = _numeric_plot_frame(summary, ["mean_train_score", "mean_test_score"])
     if plot_frame.empty:
         return
@@ -837,6 +1018,12 @@ def run_experiment(
     run_dir = _prepare_run_directory(experiment_config, run_id)
 
     joined, feature_columns, target = prepare_experiment_frame(experiment_config, feature_contract)
+    joined, feature_columns, feature_view_metadata = apply_feature_view(
+        experiment_config=experiment_config,
+        feature_contract=feature_contract,
+        joined=joined,
+        feature_columns=feature_columns,
+    )
     train = joined[joined["split"] == "train"]
     test = joined[joined["split"] == "test"]
     validation = joined[joined["split"] == "validation"]
@@ -879,12 +1066,10 @@ def run_experiment(
     rows: list[dict[str, Any]] = []
     predictions_by_split: dict[str, list[pd.DataFrame]] = {"test": [], "validation": []}
 
-
     for model_key, model_config in enabled_model_configs(experiment_config).items():
         model_name = MODEL_DISPLAY_NAMES.get(model_key, model_key)
         pipeline = make_model_pipeline(model_key, train[feature_columns], random_seed)
         grid = model_config.get("grid", {})
-
 
         return_train_score = bool(experiment_config.get("cv", {}).get("return_train_score", False))
         observability = experiment_config.get("observability", {})
@@ -1010,15 +1195,15 @@ def run_experiment(
             }
         )
 
-
-
     comparison = pd.DataFrame(rows)
     _validate_feature_count_consistency(comparison)
     outputs = experiment_config.get("outputs", {})
     output_path = (
         _resolve_output_path(outputs["model_comparison"]) if "model_comparison" in outputs else None
     )
-    card_path = _resolve_output_path(outputs["experiment_card"]) if "experiment_card" in outputs else None
+    card_path = (
+        _resolve_output_path(outputs["experiment_card"]) if "experiment_card" in outputs else None
+    )
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
     if card_path is not None:
@@ -1052,7 +1237,8 @@ def run_experiment(
         path.stem: str(path) for path in sorted((run_dir / "plots" / "hgb").glob("hgb_*.png"))
     }
     hgb_sweep_plots = {
-        path.stem: str(path) for path in sorted((run_dir / "plots" / "hgb_sweeps").glob("hgb_*.png"))
+        path.stem: str(path)
+        for path in sorted((run_dir / "plots" / "hgb_sweeps").glob("hgb_*.png"))
     }
     hgb_sweep_markdown = {
         path.stem: str(path) for path in sorted((run_dir / "diagnostics").glob("hgb_sweep*.md"))
@@ -1076,6 +1262,7 @@ def run_experiment(
         "feature_count": int(len(feature_columns)),
         "rows_used": int(len(joined)),
         "models": comparison["model"].tolist(),
+        "feature_view": feature_view_metadata,
         "paths": manifest_paths,
     }
     (run_dir / "run_manifest.json").write_text(
@@ -1089,6 +1276,7 @@ def run_experiment(
         "rows_used": int(len(joined)),
         "feature_count": int(len(feature_columns)),
         "feature_columns": feature_columns,
+        "feature_view": feature_view_metadata,
         "models": comparison["model"].tolist(),
         "model_comparison": str(output_path or run_model_comparison_path),
         "canonical_run_dir": str(run_dir),
