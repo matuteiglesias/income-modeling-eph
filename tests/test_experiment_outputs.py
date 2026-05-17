@@ -276,3 +276,99 @@ def test_feature_count_consistency_is_enforced() -> None:
     inconsistent = pd.DataFrame({"model": ["a", "b"], "feature_count": [3, 4]})
     with pytest.raises(ValueError, match="same feature_count"):
         _validate_feature_count_consistency(inconsistent)
+
+
+def test_regularization_sweep_writes_path_diagnostics_and_plots(tmp_path) -> None:
+    dataset_path = tmp_path / "modeling_dataset.parquet"
+    split_path = tmp_path / "split_assignments.csv"
+    runs_dir = tmp_path / "runs"
+
+    dataset = pd.DataFrame(
+        {
+            "row_id": range(45),
+            "logP47T": [1.0 + i * 0.02 for i in range(45)],
+            "ANO4": [2022, 2023, 2024] * 15,
+            "TRIMESTRE": [1, 2, 3, 4, 1] * 9,
+            "feature_num": [float(i % 11) for i in range(45)],
+            "feature_cat": ["a", "b", "c"] * 15,
+        }
+    )
+    dataset.to_parquet(dataset_path, index=False)
+    pd.DataFrame(
+        {
+            "row_id": range(45),
+            "split": ["train"] * 30 + ["test"] * 10 + ["validation"] * 5,
+        }
+    ).to_csv(split_path, index=False)
+
+    experiment_config = {
+        "experiment": {"id": "regularization_sweep_test", "random_seed": 42},
+        "runtime": {"mode": "debug", "sample_n": None},
+        "data": {
+            "processed_dataset": str(dataset_path),
+            "split_assignments": str(split_path),
+        },
+        "cv": {"folds": 2, "scoring": "r2", "return_train_score": True},
+        "diagnostics": {"regularization_sweep": True},
+        "models": {
+            "linear_regression": {"enabled": True, "grid": {"reg__fit_intercept": [True]}},
+            "ridge": {
+                "enabled": True,
+                "grid": {"reg__alpha": [0.1, 1.0, 10.0], "reg__fit_intercept": [True]},
+            },
+            "lasso": {
+                "enabled": True,
+                "grid": {
+                    "reg__alpha": [0.001, 0.01, 0.1],
+                    "reg__fit_intercept": [True],
+                    "reg__max_iter": [10000],
+                },
+            },
+        },
+        "outputs": {"runs_dir": str(runs_dir)},
+    }
+    feature_contract = {
+        "target": {"name": "logP47T", "source": "P47T", "transform": "log10"},
+        "forbidden_predictors": {"target": ["P47T", "logP47T"], "identifiers": ["CODUSU"]},
+    }
+
+    comparison, card = run_experiment(experiment_config, feature_contract)
+    run_dir = Path(card["canonical_run_dir"])
+
+    assert comparison["model"].tolist() == ["LinearRegression", "Ridge", "Lasso"]
+    assert (run_dir / "cv_results" / "Ridge.csv").exists()
+    assert (run_dir / "cv_results" / "Lasso.csv").exists()
+    assert "mean_train_score" in pd.read_csv(run_dir / "cv_results" / "Ridge.csv").columns
+
+    ridge_summary = pd.read_csv(run_dir / "diagnostics" / "Ridge_regularization_path_summary.csv")
+    lasso_summary = pd.read_csv(run_dir / "diagnostics" / "Lasso_regularization_path_summary.csv")
+    expected_columns = {
+        "mean_train_r2",
+        "mean_cv_r2",
+        "std_cv_r2",
+        "mean_fit_time",
+        "coefficient_l1_norm",
+        "coefficient_l2_norm",
+        "nonzero_coefficients",
+    }
+    assert expected_columns.issubset(ridge_summary.columns)
+    assert expected_columns.issubset(lasso_summary.columns)
+    assert ridge_summary["alpha"].tolist() == [0.1, 1.0, 10.0]
+    assert lasso_summary["alpha"].tolist() == [0.001, 0.01, 0.1]
+
+    assert (run_dir / "diagnostics" / "LinearRegression_best_coefficients.csv").exists()
+    assert (run_dir / "diagnostics" / "Ridge_best_coefficients.csv").exists()
+    assert (run_dir / "diagnostics" / "Lasso_best_coefficients.csv").exists()
+
+    plot_names = {path.name for path in (run_dir / "plots" / "regularization").glob("*.png")}
+    assert {
+        "ridge_cv_r2_vs_alpha.png",
+        "ridge_train_vs_cv_r2_alpha.png",
+        "ridge_coef_l2_norm_vs_alpha.png",
+        "lasso_cv_r2_vs_alpha.png",
+        "lasso_train_vs_cv_r2_alpha.png",
+        "lasso_nonzero_coefficients_vs_alpha.png",
+        "lasso_coef_l1_norm_vs_alpha.png",
+    }.issubset(plot_names)
+
+    assert not (tmp_path / "model_comparison.csv").exists()

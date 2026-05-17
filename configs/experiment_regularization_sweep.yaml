@@ -1,0 +1,87 @@
+experiment:
+  id: regularization_sweep_v1
+  random_seed: 42
+
+runtime:
+  mode: full
+  sample_n: null
+  allow_full_run: false
+
+data:
+  processed_dataset: data/processed/modeling_dataset.parquet
+  split_assignments: data/processed/split_assignments.csv
+
+split:
+  train_size: 0.70
+  test_size: 0.20
+  validation_size: 0.10
+  strategy: random_individual
+  random_state: 42
+
+cv:
+  folds: 5
+  scoring: r2
+  return_train_score: true
+
+diagnostics:
+  regularization_sweep: true
+
+models:
+  linear_regression:
+    enabled: true
+    grid:
+      reg__fit_intercept: [true]
+
+  ridge:
+    enabled: true
+    grid:
+      reg__alpha:
+        - 0.0001
+        - 0.000316228
+        - 0.001
+        - 0.00316228
+        - 0.01
+        - 0.0316228
+        - 0.1
+        - 0.316228
+        - 1.0
+        - 3.16228
+        - 10.0
+        - 31.6228
+        - 100.0
+        - 316.228
+        - 1000.0
+        - 3162.28
+        - 10000.0
+      reg__fit_intercept: [true]
+
+  lasso:
+    enabled: true
+    grid:
+      reg__alpha:
+        - 0.00001
+        - 0.0000215443
+        - 0.0000464159
+        - 0.0001
+        - 0.000215443
+        - 0.000464159
+        - 0.001
+        - 0.00215443
+        - 0.00464159
+        - 0.01
+        - 0.0215443
+        - 0.0464159
+        - 0.1
+      reg__fit_intercept: [true]
+      reg__max_iter: [20000]
+
+  hist_gradient_boosting:
+    enabled: false
+    grid: {}
+
+  mlp:
+    enabled: false
+    grid: {}
+
+outputs:
+  runs_dir: reports/runs
