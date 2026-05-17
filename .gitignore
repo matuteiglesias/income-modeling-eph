@@ -8,6 +8,7 @@ data/processed/
 *.joblib
 
 # outputs
+reports/runs/
 reports/figures/*.png
 reports/tables/*.csv
 reports/experiment_cards/*.json

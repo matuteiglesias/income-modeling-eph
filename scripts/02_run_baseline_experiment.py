@@ -54,6 +54,7 @@ def main() -> None:
                 "rows": int(card["rows_used"]),
                 "models": comparison["model"].tolist(),
                 "model_comparison": card["model_comparison"],
+                "run_dir": card["canonical_run_dir"],
             },
             indent=2,
             sort_keys=True,
