@@ -372,3 +372,123 @@ def test_regularization_sweep_writes_path_diagnostics_and_plots(tmp_path) -> Non
     }.issubset(plot_names)
 
     assert not (tmp_path / "model_comparison.csv").exists()
+
+
+def test_hgb_debug_config_declares_reference_and_hgb_grid() -> None:
+    experiment_config = load_experiment_config("configs/experiment_hgb_debug.yaml")
+
+    assert experiment_config["experiment"]["id"] == "hgb_debug"
+    assert experiment_config["runtime"]["sample_n"] == 10000
+    assert experiment_config["cv"] == {"folds": 2, "scoring": "r2", "return_train_score": True}
+    assert set(enabled_model_configs(experiment_config)) == {"ridge", "hist_gradient_boosting"}
+    hgb_grid = experiment_config["models"]["hist_gradient_boosting"]["grid"]
+    assert hgb_grid == {
+        "reg__learning_rate": [0.1],
+        "reg__max_iter": [100],
+        "reg__max_leaf_nodes": [31, 127],
+        "reg__min_samples_leaf": [20, 100],
+        "reg__l2_regularization": [0.0],
+    }
+
+
+def test_hgb_sweep_config_disables_early_stopping_for_interpretable_max_iter() -> None:
+    experiment_config = load_experiment_config("configs/experiment_hgb_sweep.yaml")
+
+    assert experiment_config["experiment"]["id"] == "hgb_sweep_v1"
+    assert experiment_config["runtime"]["mode"] == "sweep"
+    assert experiment_config["cv"] == {"folds": 3, "scoring": "r2", "return_train_score": True}
+    assert set(enabled_model_configs(experiment_config)) == {"hist_gradient_boosting"}
+    hgb_grid = experiment_config["models"]["hist_gradient_boosting"]["grid"]
+    assert hgb_grid["reg__learning_rate"] == [0.05, 0.1, 0.2]
+    assert hgb_grid["reg__max_iter"] == [100, 200, 400]
+    assert hgb_grid["reg__max_leaf_nodes"] == [31, 127]
+    assert hgb_grid["reg__min_samples_leaf"] == [20, 100]
+    assert hgb_grid["reg__l2_regularization"] == [0.0, 0.01]
+    assert hgb_grid["reg__early_stopping"] == [False]
+    assert "exact number of boosting iterations" in experiment_config["scientific_notes"]["early_stopping_decision"]
+
+
+def test_hgb_experiment_writes_hgb_specific_diagnostics_and_plots(tmp_path) -> None:
+    dataset_path = tmp_path / "modeling_dataset.parquet"
+    split_path = tmp_path / "split_assignments.csv"
+    runs_dir = tmp_path / "runs"
+
+    dataset = pd.DataFrame(
+        {
+            "row_id": range(60),
+            "logP47T": [1.0 + (i % 15) * 0.03 + (i // 15) * 0.01 for i in range(60)],
+            "ANO4": [2022, 2023, 2024, 2025] * 15,
+            "TRIMESTRE": [1, 2, 3, 4, 1] * 12,
+            "feature_num": [float(i % 13) for i in range(60)],
+            "feature_cat": ["a", "b", "c", "d"] * 15,
+        }
+    )
+    dataset.to_parquet(dataset_path, index=False)
+    pd.DataFrame(
+        {
+            "row_id": range(60),
+            "split": ["train"] * 42 + ["test"] * 12 + ["validation"] * 6,
+        }
+    ).to_csv(split_path, index=False)
+
+    experiment_config = {
+        "experiment": {"id": "hgb_diagnostics_test", "random_seed": 42},
+        "runtime": {"mode": "debug", "sample_n": None, "enabled_models": ["hist_gradient_boosting"]},
+        "data": {
+            "processed_dataset": str(dataset_path),
+            "split_assignments": str(split_path),
+        },
+        "cv": {"folds": 2, "scoring": "r2", "return_train_score": True},
+        "models": {
+            "hist_gradient_boosting": {
+                "enabled": True,
+                "grid": {
+                    "reg__learning_rate": [0.1],
+                    "reg__max_iter": [5],
+                    "reg__max_leaf_nodes": [3, 5],
+                    "reg__min_samples_leaf": [5],
+                    "reg__l2_regularization": [0.0],
+                    "reg__early_stopping": [False],
+                },
+            },
+        },
+        "outputs": {"runs_dir": str(runs_dir)},
+    }
+    feature_contract = {
+        "target": {"name": "logP47T", "source": "P47T", "transform": "log10"},
+        "forbidden_predictors": {"target": ["P47T", "logP47T"], "identifiers": ["CODUSU"]},
+    }
+
+    _, card = run_experiment(experiment_config, feature_contract)
+
+    run_dir = Path(card["canonical_run_dir"])
+    summary = pd.read_csv(run_dir / "diagnostics" / "hgb_cv_results_summary.csv")
+    assert {
+        "learning_rate",
+        "max_iter",
+        "max_leaf_nodes",
+        "max_depth",
+        "min_samples_leaf",
+        "l2_regularization",
+        "mean_train_score",
+        "mean_test_score",
+        "std_test_score",
+        "overfit_gap",
+        "mean_fit_time",
+        "rank_test_score",
+    }.issubset(summary.columns)
+    assert len(summary) == 2
+    assert (run_dir / "diagnostics" / "hgb_top_configs.csv").exists()
+    assert (run_dir / "diagnostics" / "hgb_overfit_gap_by_config.csv").exists()
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert "hgb_cv_results_summary" in manifest["paths"]
+    assert "hgb_train_vs_cv_r2_top_configs" in manifest["paths"]
+
+    expected_plots = {
+        "hgb_learning_rate_vs_max_iter.png",
+        "hgb_max_leaf_nodes_vs_cv_r2.png",
+        "hgb_min_samples_leaf_vs_cv_r2.png",
+        "hgb_l2_regularization_vs_cv_r2.png",
+        "hgb_train_vs_cv_r2_top_configs.png",
+    }
+    assert expected_plots.issubset({path.name for path in (run_dir / "plots" / "hgb").glob("*.png")})

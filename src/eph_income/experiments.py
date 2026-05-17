@@ -146,13 +146,14 @@ def _validate_runtime_mode(experiment_config: Mapping[str, Any], *, allow_full_r
     mode = str(runtime.get("mode", "full"))
     if mode == "debug":
         return mode
-    if mode != "full":
+    if mode not in {"full", "sweep"}:
         raise ValueError(f"Unsupported runtime.mode: {mode}")
 
     config_allows_full = bool(runtime.get("allow_full_run", False))
     if not allow_full_run and not config_allows_full:
+        guarded_label = "Full baseline" if mode == "full" else mode.title()
         raise ValueError(
-            "Full baseline training is guarded because it can be expensive. "
+            f"{guarded_label} training is guarded because it can be expensive. "
             "Pass --allow-full-run or set runtime.allow_full_run: true in the config."
         )
     return mode
@@ -579,6 +580,159 @@ def _write_regularization_plots(run_dir: Path, model_name: str, path_summary: pd
     return outputs
 
 
+def _hgb_param_value(row: pd.Series, param_name: str) -> Any:
+    """Return a HistGradientBoosting parameter from a cv_results row or NA if absent."""
+
+    column = f"param_reg__{param_name}"
+    if column not in row.index or pd.isna(row[column]):
+        return pd.NA
+    return row[column]
+
+
+def _hgb_cv_results_summary(cv_results: pd.DataFrame) -> pd.DataFrame:
+    """Summarize HGB GridSearchCV rows in scientifically interpretable columns."""
+
+    rows: list[dict[str, Any]] = []
+    for _, row in cv_results.iterrows():
+        mean_train_score = row.get("mean_train_score", np.nan)
+        mean_test_score = row.get("mean_test_score", np.nan)
+        rows.append(
+            {
+                "run_id": row.get("run_id", pd.NA),
+                "model": row.get("model", "HistGradientBoostingRegressor"),
+                "learning_rate": _hgb_param_value(row, "learning_rate"),
+                "max_iter": _hgb_param_value(row, "max_iter"),
+                "max_leaf_nodes": _hgb_param_value(row, "max_leaf_nodes"),
+                "max_depth": _hgb_param_value(row, "max_depth"),
+                "min_samples_leaf": _hgb_param_value(row, "min_samples_leaf"),
+                "l2_regularization": _hgb_param_value(row, "l2_regularization"),
+                "early_stopping": _hgb_param_value(row, "early_stopping"),
+                "mean_train_score": float(mean_train_score) if pd.notna(mean_train_score) else np.nan,
+                "mean_test_score": float(mean_test_score) if pd.notna(mean_test_score) else np.nan,
+                "std_test_score": float(row.get("std_test_score", np.nan)),
+                "overfit_gap": (
+                    float(mean_train_score - mean_test_score)
+                    if pd.notna(mean_train_score) and pd.notna(mean_test_score)
+                    else np.nan
+                ),
+                "mean_fit_time": float(row.get("mean_fit_time", np.nan)),
+                "rank_test_score": int(row.get("rank_test_score", 0)),
+            }
+        )
+    return pd.DataFrame(rows).sort_values("rank_test_score").reset_index(drop=True)
+
+
+def _numeric_plot_frame(summary: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    plot_frame = summary.copy()
+    for column in columns:
+        if column in plot_frame.columns:
+            plot_frame[column] = pd.to_numeric(plot_frame[column], errors="coerce")
+    return plot_frame.dropna(subset=[column for column in columns if column in plot_frame.columns])
+
+
+def _plot_hgb_learning_rate_vs_max_iter(summary: pd.DataFrame, output_path: Path) -> None:
+    plot_frame = _numeric_plot_frame(summary, ["learning_rate", "max_iter", "mean_test_score"])
+    if plot_frame.empty:
+        return
+    grouped = (
+        plot_frame.groupby(["learning_rate", "max_iter"], as_index=False)["mean_test_score"].mean()
+    )
+    fig, ax = plt.subplots(figsize=(7, 5))
+    for learning_rate, group in grouped.groupby("learning_rate"):
+        group = group.sort_values("max_iter")
+        ax.plot(group["max_iter"], group["mean_test_score"], marker="o", label=str(learning_rate))
+    ax.set_xlabel("max_iter")
+    ax.set_ylabel("Mean CV R2")
+    ax.set_title("HGB CV R2 by learning_rate and max_iter")
+    ax.legend(title="learning_rate")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+
+
+def _plot_hgb_param_vs_cv_r2(summary: pd.DataFrame, param: str, output_path: Path) -> None:
+    plot_frame = _numeric_plot_frame(summary, [param, "mean_test_score"])
+    if plot_frame.empty:
+        return
+    grouped = plot_frame.groupby(param, as_index=False).agg(
+        mean_cv_r2=("mean_test_score", "mean"),
+        std_cv_r2=("mean_test_score", "std"),
+    )
+    fig, ax = plt.subplots(figsize=(7, 5))
+    ax.errorbar(
+        grouped[param],
+        grouped["mean_cv_r2"],
+        yerr=grouped["std_cv_r2"].fillna(0.0),
+        marker="o",
+        capsize=3,
+    )
+    ax.set_xlabel(param)
+    ax.set_ylabel("Mean CV R2")
+    ax.set_title(f"HGB CV R2 by {param}")
+    if param == "l2_regularization" and (grouped[param] > 0).all():
+        ax.set_xscale("log")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+
+
+def _plot_hgb_train_vs_cv_top_configs(summary: pd.DataFrame, output_path: Path, top_n: int = 20) -> None:
+    plot_frame = _numeric_plot_frame(summary, ["mean_train_score", "mean_test_score"])
+    if plot_frame.empty:
+        return
+    plot_frame = plot_frame.sort_values("rank_test_score").head(top_n).copy()
+    plot_frame["config_rank"] = range(1, len(plot_frame) + 1)
+    fig, ax = plt.subplots(figsize=(9, 5))
+    ax.plot(plot_frame["config_rank"], plot_frame["mean_train_score"], marker="o", label="Train R2")
+    ax.plot(plot_frame["config_rank"], plot_frame["mean_test_score"], marker="o", label="CV R2")
+    ax.set_xlabel("CV rank among top configurations")
+    ax.set_ylabel("R2")
+    ax.set_title("HGB train vs CV R2 for top configurations")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+
+
+def _write_hgb_diagnostics(run_dir: Path, cv_results: pd.DataFrame) -> dict[str, Path]:
+    """Write HGB-specific tables and plots from archived GridSearchCV results."""
+
+    summary = _hgb_cv_results_summary(cv_results)
+    diagnostics_dir = run_dir / "diagnostics"
+    plots_dir = run_dir / "plots" / "hgb"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+
+    paths = {
+        "hgb_cv_results_summary": diagnostics_dir / "hgb_cv_results_summary.csv",
+        "hgb_top_configs": diagnostics_dir / "hgb_top_configs.csv",
+        "hgb_overfit_gap_by_config": diagnostics_dir / "hgb_overfit_gap_by_config.csv",
+    }
+    summary.to_csv(paths["hgb_cv_results_summary"], index=False)
+    summary.head(20).to_csv(paths["hgb_top_configs"], index=False)
+    summary.sort_values("overfit_gap", ascending=False, na_position="last").to_csv(
+        paths["hgb_overfit_gap_by_config"], index=False
+    )
+
+    plot_paths = {
+        "hgb_learning_rate_vs_max_iter": plots_dir / "hgb_learning_rate_vs_max_iter.png",
+        "hgb_max_leaf_nodes_vs_cv_r2": plots_dir / "hgb_max_leaf_nodes_vs_cv_r2.png",
+        "hgb_min_samples_leaf_vs_cv_r2": plots_dir / "hgb_min_samples_leaf_vs_cv_r2.png",
+        "hgb_l2_regularization_vs_cv_r2": plots_dir / "hgb_l2_regularization_vs_cv_r2.png",
+        "hgb_train_vs_cv_r2_top_configs": plots_dir / "hgb_train_vs_cv_r2_top_configs.png",
+    }
+    _plot_hgb_learning_rate_vs_max_iter(summary, plot_paths["hgb_learning_rate_vs_max_iter"])
+    _plot_hgb_param_vs_cv_r2(summary, "max_leaf_nodes", plot_paths["hgb_max_leaf_nodes_vs_cv_r2"])
+    _plot_hgb_param_vs_cv_r2(
+        summary, "min_samples_leaf", plot_paths["hgb_min_samples_leaf_vs_cv_r2"]
+    )
+    _plot_hgb_param_vs_cv_r2(
+        summary, "l2_regularization", plot_paths["hgb_l2_regularization_vs_cv_r2"]
+    )
+    _plot_hgb_train_vs_cv_top_configs(summary, plot_paths["hgb_train_vs_cv_r2_top_configs"])
+    paths.update({key: path for key, path in plot_paths.items() if path.exists()})
+    return paths
+
+
 def run_experiment(
     experiment_config: Mapping[str, Any],
     feature_contract: Mapping[str, Any],
@@ -645,6 +799,9 @@ def run_experiment(
         cv_results.insert(0, "run_id", run_id)
         cv_results.insert(1, "model", model_name)
         cv_results.to_csv(run_dir / "cv_results" / f"{model_name}.csv", index=False)
+
+        if model_key == "hist_gradient_boosting":
+            _write_hgb_diagnostics(run_dir, cv_results)
 
         if write_coefficient_diagnostics:
             _write_best_coefficient_summary(
@@ -737,6 +894,14 @@ def run_experiment(
         "error_by_income_decile": str(diagnostic_paths["error_by_income_decile"]),
         "prediction_distribution_summary": str(diagnostic_paths["prediction_distribution_summary"]),
     }
+    hgb_diagnostics = {
+        path.stem: str(path) for path in sorted((run_dir / "diagnostics").glob("hgb_*.csv"))
+    }
+    hgb_plots = {
+        path.stem: str(path) for path in sorted((run_dir / "plots" / "hgb").glob("hgb_*.png"))
+    }
+    manifest_paths.update(hgb_diagnostics)
+    manifest_paths.update(hgb_plots)
     if output_path is not None:
         manifest_paths["model_comparison_convenience_copy"] = str(output_path)
 

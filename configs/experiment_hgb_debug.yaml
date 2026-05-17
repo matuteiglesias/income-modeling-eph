@@ -1,0 +1,59 @@
+experiment:
+  id: hgb_debug
+  random_seed: 42
+
+runtime:
+  mode: debug
+  sample_n: 10000
+  enabled_models:
+    - ridge
+    - hist_gradient_boosting
+
+data:
+  processed_dataset: data/processed/modeling_dataset.parquet
+  split_assignments: data/processed/split_assignments.csv
+
+split:
+  train_size: 0.70
+  test_size: 0.20
+  validation_size: 0.10
+  strategy: random_individual
+  random_state: 42
+
+cv:
+  folds: 2
+  scoring: r2
+  return_train_score: true
+
+models:
+  linear_regression:
+    enabled: false
+    grid: {}
+
+  ridge:
+    enabled: true
+    grid:
+      reg__alpha: [2]
+      reg__fit_intercept: [true]
+
+  lasso:
+    enabled: false
+    grid: {}
+
+  hist_gradient_boosting:
+    enabled: true
+    grid:
+      reg__learning_rate: [0.1]
+      reg__max_iter: [100]
+      reg__max_leaf_nodes: [31, 127]
+      reg__min_samples_leaf: [20, 100]
+      reg__l2_regularization: [0.0]
+
+  mlp:
+    enabled: false
+    grid: {}
+
+outputs:
+  model_comparison: reports/tables/model_comparison_hgb_debug.csv
+  experiment_card: reports/experiment_cards/hgb_debug.json
+  runs_dir: reports/runs
