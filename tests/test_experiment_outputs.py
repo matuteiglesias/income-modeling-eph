@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -15,6 +16,7 @@ def test_debug_experiment_writes_expected_outputs(tmp_path) -> None:
     split_path = tmp_path / "split_assignments.csv"
     output_csv = tmp_path / "model_comparison_debug.csv"
     card_path = tmp_path / "debug_experiment.json"
+    runs_dir = tmp_path / "runs"
 
     dataset = pd.DataFrame(
         {
@@ -47,7 +49,11 @@ def test_debug_experiment_writes_expected_outputs(tmp_path) -> None:
             "linear_regression": {"enabled": True, "grid": {"reg__fit_intercept": [True]}},
             "ridge": {"enabled": True, "grid": {"reg__alpha": [1.0], "reg__fit_intercept": [True]}},
         },
-        "outputs": {"model_comparison": str(output_csv), "experiment_card": str(card_path)},
+        "outputs": {
+            "model_comparison": str(output_csv),
+            "experiment_card": str(card_path),
+            "runs_dir": str(runs_dir),
+        },
     }
     feature_contract = {
         "target": {"name": "logP47T", "source": "P47T", "transform": "log10"},
@@ -103,6 +109,105 @@ def test_debug_experiment_writes_expected_outputs(tmp_path) -> None:
     assert leakage_columns.isdisjoint(card["feature_columns"])
     written_card = json.loads(card_path.read_text(encoding="utf-8"))
     assert written_card["mode"] == "debug"
+
+
+def test_debug_experiment_writes_local_run_artifacts(tmp_path) -> None:
+    dataset_path = tmp_path / "modeling_dataset.parquet"
+    split_path = tmp_path / "split_assignments.csv"
+    output_csv = tmp_path / "tables" / "model_comparison_debug.csv"
+    card_path = tmp_path / "cards" / "debug_experiment.json"
+    runs_dir = tmp_path / "runs"
+
+    dataset = pd.DataFrame(
+        {
+            "row_id": range(30),
+            "logP47T": [1.0 + i * 0.01 for i in range(30)],
+            "ANO4": [2022, 2023, 2024] * 10,
+            "TRIMESTRE": [1, 2, 3, 4, 1] * 6,
+            "feature_num": range(30),
+            "feature_cat": ["a", "b", "c"] * 10,
+        }
+    )
+    dataset.to_parquet(dataset_path, index=False)
+    pd.DataFrame(
+        {
+            "row_id": range(30),
+            "split": ["train"] * 21 + ["test"] * 6 + ["validation"] * 3,
+        }
+    ).to_csv(split_path, index=False)
+
+    experiment_config = {
+        "experiment": {"id": "debug_test", "random_seed": 42},
+        "runtime": {"mode": "debug", "sample_n": None},
+        "data": {
+            "processed_dataset": str(dataset_path),
+            "split_assignments": str(split_path),
+        },
+        "cv": {"folds": 2, "scoring": "r2"},
+        "models": {
+            "linear_regression": {"enabled": True, "grid": {"reg__fit_intercept": [True]}},
+            "ridge": {"enabled": True, "grid": {"reg__alpha": [1.0], "reg__fit_intercept": [True]}},
+        },
+        "outputs": {
+            "model_comparison": str(output_csv),
+            "experiment_card": str(card_path),
+            "runs_dir": str(runs_dir),
+        },
+    }
+    feature_contract = {
+        "target": {"name": "logP47T", "source": "P47T", "transform": "log10"},
+        "forbidden_predictors": {"target": ["P47T", "logP47T"], "identifiers": ["CODUSU"]},
+    }
+
+    comparison, card = run_experiment(experiment_config, feature_contract)
+
+    run_dir = Path(card["canonical_run_dir"])
+    assert run_dir.is_dir()
+    expected_artifacts = [
+        "run_manifest.json",
+        "config_used.yaml",
+        "feature_contract_used.yaml",
+        "dataset_card.json",
+        "feature_columns.json",
+        "metrics/model_comparison.csv",
+        "metrics/metrics_long.csv",
+        "predictions/test_predictions.parquet",
+        "predictions/validation_predictions.parquet",
+        "cv_results/LinearRegression.csv",
+        "cv_results/Ridge.csv",
+        "diagnostics/residual_summary.csv",
+        "diagnostics/error_by_income_decile.csv",
+        "diagnostics/prediction_distribution_summary.csv",
+    ]
+    for relative_path in expected_artifacts:
+        assert (run_dir / relative_path).exists(), relative_path
+
+    pd.testing.assert_frame_equal(pd.read_csv(run_dir / "metrics/model_comparison.csv"), comparison)
+    pd.testing.assert_frame_equal(pd.read_csv(output_csv), comparison)
+
+    test_predictions = pd.read_parquet(run_dir / "predictions/test_predictions.parquet")
+    required_prediction_columns = {
+        "run_id",
+        "model",
+        "split",
+        "row_id",
+        "y_true",
+        "y_pred",
+        "residual",
+        "abs_error",
+        "squared_error",
+    }
+    assert required_prediction_columns.issubset(test_predictions.columns)
+    assert set(test_predictions["model"]) == {"LinearRegression", "Ridge"}
+    assert set(test_predictions["split"]) == {"test"}
+
+    residual_summary = pd.read_csv(run_dir / "diagnostics/residual_summary.csv")
+    assert {"run_id", "model", "split", "residual_mean", "abs_error_mean"}.issubset(
+        residual_summary.columns
+    )
+    manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["canonical_owner"] == "run_directory"
+    assert manifest["paths"]["model_comparison_convenience_copy"] == str(output_csv)
 
 
 def test_baseline_config_enables_all_state6_models() -> None:
