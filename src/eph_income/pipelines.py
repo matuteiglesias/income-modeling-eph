@@ -54,7 +54,30 @@ def infer_feature_types(features: pd.DataFrame) -> tuple[list[str], list[str]]:
     return numeric_columns, categorical_columns
 
 
-def make_preprocessor(features: pd.DataFrame, *, scale_numeric: bool) -> ColumnTransformer:
+def _categorical_pipeline(*, drop_first: bool) -> Pipeline:
+    """Create a categorical pipeline with optional first-level dropping."""
+
+    return Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            (
+                "ohe",
+                OneHotEncoder(
+                    handle_unknown="ignore",
+                    sparse_output=False,
+                    drop="first" if drop_first else None,
+                ),
+            ),
+        ]
+    )
+
+
+def make_preprocessor(
+    features: pd.DataFrame,
+    *,
+    scale_numeric: bool,
+    drop_first_categorical_columns: set[str] | None = None,
+) -> ColumnTransformer:
     """Create preprocessing inside an sklearn pipeline."""
 
     numeric_columns, categorical_columns = infer_feature_types(features)
@@ -81,32 +104,82 @@ def make_preprocessor(features: pd.DataFrame, *, scale_numeric: bool) -> ColumnT
     )
 
 
-def make_model_pipeline(model_key: str, features: pd.DataFrame, random_state: int = 42) -> Pipeline:
+def make_model_pipeline(
+    model_key: str,
+    features: pd.DataFrame,
+    random_state: int = 42,
+    *,
+    drop_first_categorical_columns: set[str] | None = None,
+) -> Pipeline:
     """Build the configured sklearn pipeline for a model family."""
 
     if model_key == "linear_regression":
         return Pipeline(
-            [("preproc", make_preprocessor(features, scale_numeric=True)), ("reg", LinearRegression())]
+            [
+                (
+                    "preproc",
+                    make_preprocessor(
+                        features,
+                        scale_numeric=True,
+                        drop_first_categorical_columns=drop_first_categorical_columns,
+                    ),
+                ),
+                ("reg", LinearRegression()),
+            ]
         )
     if model_key == "ridge":
         return Pipeline(
-            [("preproc", make_preprocessor(features, scale_numeric=True)), ("reg", Ridge())]
+            [
+                (
+                    "preproc",
+                    make_preprocessor(
+                        features,
+                        scale_numeric=True,
+                        drop_first_categorical_columns=drop_first_categorical_columns,
+                    ),
+                ),
+                ("reg", Ridge()),
+            ]
         )
     if model_key == "lasso":
         return Pipeline(
-            [("preproc", make_preprocessor(features, scale_numeric=True)), ("reg", Lasso())]
+            [
+                (
+                    "preproc",
+                    make_preprocessor(
+                        features,
+                        scale_numeric=True,
+                        drop_first_categorical_columns=drop_first_categorical_columns,
+                    ),
+                ),
+                ("reg", Lasso()),
+            ]
         )
     if model_key == "hist_gradient_boosting":
         return Pipeline(
             [
-                ("preproc", make_preprocessor(features, scale_numeric=False)),
+                (
+                    "preproc",
+                    make_preprocessor(
+                        features,
+                        scale_numeric=False,
+                        drop_first_categorical_columns=drop_first_categorical_columns,
+                    ),
+                ),
                 ("reg", HistGradientBoostingRegressor(random_state=random_state)),
             ]
         )
     if model_key == "mlp":
         return Pipeline(
             [
-                ("preproc", make_preprocessor(features, scale_numeric=True)),
+                (
+                    "preproc",
+                    make_preprocessor(
+                        features,
+                        scale_numeric=True,
+                        drop_first_categorical_columns=drop_first_categorical_columns,
+                    ),
+                ),
                 ("reg", MLPRegressor(random_state=random_state)),
             ]
         )
