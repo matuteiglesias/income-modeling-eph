@@ -22,6 +22,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from eph_income.diagnostics_registry import normalize_diagnostics_config
+
 REQUIRED_PREDICTION_COLUMNS = {
     "run_id",
     "model",
@@ -724,12 +726,16 @@ def _write_hgb_sweep_diagnostics(
     config: Mapping[str, Any],
     run_id: str | None,
 ) -> tuple[dict[str, Path], list[str]]:
-    diagnostics_config = config.get("diagnostics", {}) if isinstance(config, Mapping) else {}
-    if not isinstance(diagnostics_config, Mapping):
+    try:
+        diagnostics_config = normalize_diagnostics_config(config)
+    except (TypeError, ValueError):
         return {}, []
-    sweep_type = diagnostics_config.get("sweep_type")
-    primary_param = diagnostics_config.get("primary_param")
-    group_param = diagnostics_config.get("group_param")
+    sweep_config = diagnostics_config["sweeps"]
+    if not diagnostics_config["enabled"] or not bool(sweep_config.get("enabled")):
+        return {}, []
+    sweep_type = sweep_config.get("sweep_type")
+    primary_param = sweep_config.get("primary_param")
+    group_param = sweep_config.get("group_param")
     if sweep_type not in {"hgb_lr_iter", "hgb_single_param"} or not primary_param:
         return {}, []
     cv_file = _hgb_cv_file(run_dir)
@@ -854,6 +860,20 @@ def build_diagnostics(run_dir: str | Path, *, split: str = "test") -> dict[str, 
     metric_gaps.to_csv(outputs["metric_gaps"], index=False)
 
     notes: list[str] = []
+    diagnostics_plan = _read_json(diagnostics_dir / "diagnostics_plan.json")
+    resolved_plan = diagnostics_plan.get("resolved", {}) if diagnostics_plan else {}
+    distribution_plan = resolved_plan.get("distribution", {}) if isinstance(resolved_plan, Mapping) else {}
+    plots_plan = resolved_plan.get("plots", {}) if isinstance(resolved_plan, Mapping) else {}
+    if isinstance(distribution_plan, Mapping) and distribution_plan.get("compression_summary"):
+        notes.append(
+            "Skipped distribution_compression_summary.csv: compression summary is planned "
+            "for this diagnostics profile but is not implemented yet."
+        )
+    if isinstance(plots_plan, Mapping) and plots_plan.get("distribution_compression_by_model"):
+        notes.append(
+            "Skipped distribution_compression_by_model.png: compression plot is planned "
+            "for this diagnostics profile but is not implemented yet."
+        )
     plot_outputs = {
         "prediction_distribution_by_model": plots_dir / "prediction_distribution_by_model.png",
         "observed_vs_predicted_best_model": plots_dir / "observed_vs_predicted_best_model.png",

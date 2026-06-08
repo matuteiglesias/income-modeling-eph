@@ -37,6 +37,7 @@ from eph_income.contracts import (
     validate_target_contract,
 )
 from eph_income.diagnostics import _write_hgb_sweep_diagnostics
+from eph_income.diagnostics_registry import build_diagnostics_plan
 from eph_income.dataset import ROW_ID_COLUMN, get_metadata_path, resolve_project_path
 from eph_income.pipelines import MODEL_DISPLAY_NAMES, enabled_model_configs, make_model_pipeline
 from eph_income.splits import get_split_path, validate_split_assignments
@@ -1247,11 +1248,26 @@ def run_experiment(
         feature_contract=feature_contract,
     )
 
-    diagnostics_config = experiment_config.get("diagnostics", {})
+    enabled_models = list(enabled_model_configs(experiment_config).keys())
+    diagnostics_plan = build_diagnostics_plan(
+        experiment_config=experiment_config,
+        enabled_models=enabled_models,
+        fixed_effects_used=fixed_effects_used,
+    )
+    diagnostics_plan_payload = {
+        "run_id": run_id,
+        **diagnostics_plan,
+        "enabled_model_display_names": {
+            model_key: MODEL_DISPLAY_NAMES.get(model_key, model_key)
+            for model_key in enabled_models
+        },
+    }
+    diagnostics_plan_path = run_dir / "diagnostics" / "diagnostics_plan.json"
+    diagnostics_plan_path.write_text(
+        json.dumps(diagnostics_plan_payload, indent=2, sort_keys=True), encoding="utf-8"
+    )
     write_coefficient_diagnostics = bool(
-        diagnostics_config.get("regularization_sweep", False)
-        if isinstance(diagnostics_config, Mapping)
-        else False
+        diagnostics_plan["resolved"]["regularization"].get("coefficient_paths", False)
     )
 
     rows: list[dict[str, Any]] = []
@@ -1439,6 +1455,7 @@ def run_experiment(
         "residual_summary": str(diagnostic_paths["residual_summary"]),
         "error_by_income_decile": str(diagnostic_paths["error_by_income_decile"]),
         "prediction_distribution_summary": str(diagnostic_paths["prediction_distribution_summary"]),
+        "diagnostics_plan": str(diagnostics_plan_path),
     }
     hgb_diagnostics = {
         path.stem: str(path) for path in sorted((run_dir / "diagnostics").glob("hgb_*.csv"))

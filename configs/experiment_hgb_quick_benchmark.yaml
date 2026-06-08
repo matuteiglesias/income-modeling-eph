@@ -1,5 +1,6 @@
 experiment:
-  id: hgb_leaf_capacity_sweep_v1
+  id: hgb_quick_benchmark_v1
+  kind: benchmark
   random_seed: 42
 
 runtime:
@@ -8,6 +9,12 @@ runtime:
   allow_full_run: false
   enabled_models:
     - hist_gradient_boosting
+
+feature_view:
+  name: clean_geo
+  drop_columns:
+    - AGLO_rk
+    - Reg_rk
 
 data:
   processed_dataset: data/processed/modeling_dataset.parquet
@@ -25,55 +32,60 @@ cv:
   scoring: r2
   return_train_score: true
 
+artifacts:
+  training_frame_sample_n: 10
+
 diagnostics:
   enabled: true
-  profile: hgb_capacity_sweep
+  profile: thesis_core
   standard:
     residual_summary: true
+    error_by_income_decile: true
     prediction_distribution_summary: true
-    error_by_income_decile: false
-  hgb:
-    enabled: true
-    basic_cv_summaries: true
-    top_configs: true
-    overfit_gap_by_config: true
-  sweeps:
-    enabled: true
-    sweep_type: hgb_single_param
-    primary_param: max_leaf_nodes
-    group_param: null
+    model_pairwise_error_comparison: true
+    metric_gaps: true
   plots:
-    hgb_cv_curve: true
-    hgb_train_vs_cv: true
-    hgb_overfit_gap: true
-    hgb_fit_time: true
+    observed_vs_predicted: true
+    prediction_distribution: true
+    residual_distribution: true
+    mae_by_income_decile: true
+    mean_residual_by_income_decile: true
+  distribution:
+    compression_summary: true
+    decile_tail_summary: true
 
 models:
   linear_regression:
     enabled: false
     grid: {}
+
   ridge:
     enabled: false
     grid: {}
+
   lasso:
     enabled: false
     grid: {}
+
   hist_gradient_boosting:
     enabled: true
     grid:
-      reg__learning_rate: [0.05]
+      reg__loss: ["squared_error"]
+      reg__learning_rate: [0.075]
       reg__max_iter: [200]
-      reg__max_leaf_nodes: [7, 15, 23, 31, 47, 63, 95, 127]
+      reg__max_leaf_nodes: [31]
       reg__min_samples_leaf: [100]
       reg__l2_regularization: [0.0]
       reg__early_stopping: [false]
+      reg__random_state: [42]
+
   mlp:
     enabled: false
     grid: {}
 
 outputs:
-  model_comparison: reports/tables/model_comparison_hgb_leaf_capacity_sweep.csv
-  experiment_card: reports/experiment_cards/hgb_leaf_capacity_sweep.json
+  model_comparison: reports/tables/model_comparison_hgb_quick_benchmark.csv
+  experiment_card: reports/experiment_cards/hgb_quick_benchmark.json
   runs_dir: reports/runs
 
 observability:

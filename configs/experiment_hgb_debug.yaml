@@ -25,6 +25,18 @@ cv:
   scoring: r2
   return_train_score: true
 
+diagnostics:
+  enabled: true
+  profile: smoke_minimal
+  standard:
+    residual_summary: true
+    prediction_distribution_summary: true
+    error_by_income_decile: false
+    model_pairwise_error_comparison: false
+    metric_gaps: false
+  plots:
+    enabled: false
+
 models:
   linear_regression:
     enabled: false
