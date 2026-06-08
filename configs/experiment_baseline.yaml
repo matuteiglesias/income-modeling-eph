@@ -29,17 +29,22 @@ cv:
 
 diagnostics:
   enabled: true
-  profile: standard
+  profile: thesis_core
   standard:
     residual_summary: true
     error_by_income_decile: true
     prediction_distribution_summary: true
     model_pairwise_error_comparison: true
     metric_gaps: true
-  coefficients:
-    enabled: auto
-  hgb:
-    enabled: auto
+  plots:
+    observed_vs_predicted: true
+    prediction_distribution: true
+    residual_distribution: true
+    mae_by_income_decile: true
+    mean_residual_by_income_decile: true
+  distribution:
+    compression_summary: true
+    decile_tail_summary: true
 
 models:
   linear_regression:

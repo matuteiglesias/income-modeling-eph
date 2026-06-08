@@ -14,7 +14,18 @@ from pathlib import Path
 from typing import Any
 
 DIAGNOSTICS_SCHEMA_VERSION = "diagnostics_v1"
-DIAGNOSTICS_PROFILES = {"none", "minimal", "standard", "sweep"}
+DIAGNOSTICS_PROFILES = {
+    "none",
+    "minimal",
+    "standard",
+    "sweep",
+    "smoke_minimal",
+    "thesis_core",
+    "hgb_capacity_sweep",
+    "regularization_interpretation",
+    "geo_leakage_probe",
+    "linear_fe_interpretation",
+}
 COEFFICIENT_MODEL_KEYS = {"linear_regression", "ridge", "lasso"}
 REGULARIZATION_MODEL_KEYS = {"ridge", "lasso"}
 HGB_MODEL_KEY = "hist_gradient_boosting"
@@ -37,11 +48,80 @@ MINIMAL_STANDARD_DEFAULTS: dict[str, bool] = {
     for key in STANDARD_DEFAULTS
 }
 
+PROFILE_STANDARD_DEFAULTS: dict[str, dict[str, bool]] = {
+    "smoke_minimal": {
+        **{key: False for key in STANDARD_DEFAULTS},
+        "residual_summary": True,
+        "prediction_distribution_summary": True,
+    },
+    "thesis_core": dict(STANDARD_DEFAULTS),
+    "hgb_capacity_sweep": {
+        **{key: False for key in STANDARD_DEFAULTS},
+        "residual_summary": True,
+        "prediction_distribution_summary": True,
+    },
+    "regularization_interpretation": {
+        **{key: False for key in STANDARD_DEFAULTS},
+        "residual_summary": True,
+        "prediction_distribution_summary": True,
+    },
+    "geo_leakage_probe": {
+        **{key: False for key in STANDARD_DEFAULTS},
+        "residual_summary": True,
+        "error_by_income_decile": True,
+        "prediction_distribution_summary": True,
+    },
+    "linear_fe_interpretation": {
+        **{key: False for key in STANDARD_DEFAULTS},
+        "residual_summary": True,
+        "prediction_distribution_summary": True,
+    },
+}
+
+DEFAULT_PLOTS: dict[str, bool] = {
+    "enabled": True,
+    "observed_vs_predicted": True,
+    "prediction_distribution": True,
+    "residual_distribution": True,
+    "mae_by_income_decile": True,
+    "mean_residual_by_income_decile": True,
+    "distribution_compression_by_model": False,
+    "hgb_cv_curve": False,
+    "hgb_train_vs_cv": False,
+    "hgb_overfit_gap": False,
+    "hgb_fit_time": False,
+    "ridge_cv_r2_vs_alpha": False,
+    "lasso_cv_r2_vs_alpha": False,
+    "ridge_coef_l2_norm_vs_alpha": False,
+    "lasso_coef_l1_norm_vs_alpha": False,
+    "lasso_nonzero_coefficients_vs_alpha": False,
+    "fixed_effect_coefficients": False,
+}
+
+DEFAULT_DISTRIBUTION: dict[str, bool] = {
+    "compression_summary": False,
+    "decile_tail_summary": False,
+}
+
+DEFAULT_COMPARISON: dict[str, Any] = {
+    "family": None,
+    "variant": None,
+    "anchor_variant": None,
+}
+
+DEFAULT_FIXED_EFFECTS: dict[str, bool] = {
+    "enabled": "auto",
+    "coefficient_table": True,
+    "reference_levels": True,
+}
+
 DEFAULT_NORMALIZED_CONFIG: dict[str, Any] = {
     "schema_version": DIAGNOSTICS_SCHEMA_VERSION,
     "enabled": True,
     "profile": "standard",
     "standard": STANDARD_DEFAULTS,
+    "plots": DEFAULT_PLOTS,
+    "distribution": DEFAULT_DISTRIBUTION,
     "coefficients": {
         "enabled": "auto",
         "best_coefficients": True,
@@ -51,10 +131,14 @@ DEFAULT_NORMALIZED_CONFIG: dict[str, Any] = {
         "enabled": "auto",
         "alpha_curves": True,
         "coefficient_paths": True,
+        "coefficient_norms": False,
+        "sparsity_summary": False,
     },
     "hgb": {
         "enabled": "auto",
         "basic_cv_summaries": True,
+        "top_configs": True,
+        "overfit_gap_by_config": True,
     },
     "sweeps": {
         "enabled": "auto",
@@ -62,6 +146,9 @@ DEFAULT_NORMALIZED_CONFIG: dict[str, Any] = {
         "primary_param": None,
         "group_param": None,
     },
+    "comparison": DEFAULT_COMPARISON,
+    "fixed_effects": DEFAULT_FIXED_EFFECTS,
+    "notes": [],
     "compatibility": {
         "used_legacy_regularization_sweep_key": False,
         "used_legacy_sweep_type_key": False,
@@ -121,12 +208,23 @@ def normalize_diagnostics_config(experiment_config: Mapping[str, Any]) -> dict[s
         normalized["enabled"] = False
     if normalized["profile"] == "minimal":
         normalized["standard"] = dict(MINIMAL_STANDARD_DEFAULTS)
+    if normalized["profile"] in PROFILE_STANDARD_DEFAULTS:
+        normalized["standard"] = dict(PROFILE_STANDARD_DEFAULTS[normalized["profile"]])
 
-    _merge_section(normalized, raw, "standard")
-    _merge_section(normalized, raw, "coefficients")
-    _merge_section(normalized, raw, "regularization")
-    _merge_section(normalized, raw, "hgb")
-    _merge_section(normalized, raw, "sweeps")
+    for section in [
+        "standard",
+        "plots",
+        "distribution",
+        "coefficients",
+        "regularization",
+        "hgb",
+        "sweeps",
+        "comparison",
+        "fixed_effects",
+    ]:
+        _merge_section(normalized, raw, section)
+    if isinstance(raw.get("notes"), list):
+        normalized["notes"] = list(raw["notes"])
 
     if raw.get("regularization_sweep") is True:
         normalized["regularization"]["enabled"] = True
@@ -140,7 +238,7 @@ def normalize_diagnostics_config(experiment_config: Mapping[str, Any]) -> dict[s
         normalized["sweeps"]["group_param"] = raw.get("group_param")
         normalized["compatibility"]["used_legacy_sweep_type_key"] = True
 
-    for section in ["coefficients", "regularization", "hgb", "sweeps"]:
+    for section in ["coefficients", "regularization", "hgb", "sweeps", "fixed_effects"]:
         normalized[section]["enabled"] = _normalize_enabled(normalized[section].get("enabled"))
 
     return normalized
@@ -233,16 +331,30 @@ def build_diagnostics_plan(
     if not sweeps_enabled and normalized["sweeps"]["enabled"] == "auto":
         notes.append("HGB sweep diagnostics disabled because no sweep_type is configured.")
 
+    fixed_effects_enabled = _resolve_auto(
+        normalized["fixed_effects"]["enabled"], bool(fixed_effect_specs)
+    )
     standard_enabled = bool(normalized["enabled"] and normalized["profile"] != "none")
+    plots_enabled = bool(normalized["plots"].get("enabled", True) and standard_enabled)
     standard_plan = {
         name: bool(enabled and standard_enabled)
         for name, enabled in normalized["standard"].items()
+    }
+    plots_plan = {
+        name: bool(enabled and plots_enabled) if name != "enabled" else plots_enabled
+        for name, enabled in normalized["plots"].items()
+    }
+    distribution_plan = {
+        name: bool(enabled and standard_enabled)
+        for name, enabled in normalized["distribution"].items()
     }
 
     resolved = {
         "enabled": bool(normalized["enabled"]),
         "profile": normalized["profile"],
         "standard": standard_plan,
+        "plots": plots_plan,
+        "distribution": distribution_plan,
         "coefficients": {
             "enabled": bool(coefficients_enabled and normalized["enabled"]),
             "best_coefficients": bool(
@@ -252,6 +364,16 @@ def build_diagnostics_plan(
             ),
             "fixed_effect_coefficients": bool(
                 fixed_effect_coefficients_enabled and normalized["enabled"]
+            ),
+            "standardized_coefficients": bool(
+                coefficients_enabled
+                and normalized["enabled"]
+                and normalized["coefficients"].get("standardized_coefficients", False)
+            ),
+            "coefficient_stability": bool(
+                coefficients_enabled
+                and normalized["enabled"]
+                and normalized["coefficients"].get("coefficient_stability", False)
             ),
         },
         "regularization": {
@@ -266,11 +388,31 @@ def build_diagnostics_plan(
                 and normalized["enabled"]
                 and normalized["regularization"].get("coefficient_paths", True)
             ),
+            "coefficient_norms": bool(
+                regularization_enabled
+                and normalized["enabled"]
+                and normalized["regularization"].get("coefficient_norms", False)
+            ),
+            "sparsity_summary": bool(
+                regularization_enabled
+                and normalized["enabled"]
+                and normalized["regularization"].get("sparsity_summary", False)
+            ),
         },
         "hgb": {
             "enabled": bool(hgb_enabled and normalized["enabled"]),
             "basic_cv_summaries": bool(
-                hgb_enabled and normalized["enabled"] and normalized["hgb"].get("basic_cv_summaries", True)
+                hgb_enabled
+                and normalized["enabled"]
+                and normalized["hgb"].get("basic_cv_summaries", True)
+            ),
+            "top_configs": bool(
+                hgb_enabled and normalized["enabled"] and normalized["hgb"].get("top_configs", True)
+            ),
+            "overfit_gap_by_config": bool(
+                hgb_enabled
+                and normalized["enabled"]
+                and normalized["hgb"].get("overfit_gap_by_config", True)
             ),
         },
         "sweeps": {
@@ -279,14 +421,31 @@ def build_diagnostics_plan(
             "primary_param": primary_param,
             "group_param": normalized["sweeps"].get("group_param"),
         },
+        "fixed_effects": {
+            "enabled": bool(fixed_effects_enabled and normalized["enabled"]),
+            "coefficient_table": bool(
+                fixed_effects_enabled
+                and normalized["enabled"]
+                and normalized["fixed_effects"].get("coefficient_table", True)
+            ),
+            "reference_levels": bool(
+                fixed_effects_enabled
+                and normalized["enabled"]
+                and normalized["fixed_effects"].get("reference_levels", True)
+            ),
+        },
+        "comparison": dict(normalized["comparison"]),
     }
 
     return {
         "diagnostics_schema_version": DIAGNOSTICS_SCHEMA_VERSION,
+        "schema_version": DIAGNOSTICS_SCHEMA_VERSION,
+        "enabled": bool(normalized["enabled"]),
+        "profile": normalized["profile"],
         "normalized_config": normalized,
         "resolved": resolved,
         "enabled_models": sorted(enabled_model_set),
         "fixed_effects_used": fixed_effect_specs,
         "cv_result_paths": _path_map(cv_result_paths),
-        "notes": notes,
+        "notes": [*normalized.get("notes", []), *notes],
     }

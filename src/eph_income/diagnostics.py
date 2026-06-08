@@ -860,6 +860,20 @@ def build_diagnostics(run_dir: str | Path, *, split: str = "test") -> dict[str, 
     metric_gaps.to_csv(outputs["metric_gaps"], index=False)
 
     notes: list[str] = []
+    diagnostics_plan = _read_json(diagnostics_dir / "diagnostics_plan.json")
+    resolved_plan = diagnostics_plan.get("resolved", {}) if diagnostics_plan else {}
+    distribution_plan = resolved_plan.get("distribution", {}) if isinstance(resolved_plan, Mapping) else {}
+    plots_plan = resolved_plan.get("plots", {}) if isinstance(resolved_plan, Mapping) else {}
+    if isinstance(distribution_plan, Mapping) and distribution_plan.get("compression_summary"):
+        notes.append(
+            "Skipped distribution_compression_summary.csv: compression summary is planned "
+            "for this diagnostics profile but is not implemented yet."
+        )
+    if isinstance(plots_plan, Mapping) and plots_plan.get("distribution_compression_by_model"):
+        notes.append(
+            "Skipped distribution_compression_by_model.png: compression plot is planned "
+            "for this diagnostics profile but is not implemented yet."
+        )
     plot_outputs = {
         "prediction_distribution_by_model": plots_dir / "prediction_distribution_by_model.png",
         "observed_vs_predicted_best_model": plots_dir / "observed_vs_predicted_best_model.png",

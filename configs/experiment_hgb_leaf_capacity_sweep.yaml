@@ -39,6 +39,11 @@ diagnostics:
     sweep_type: hgb_single_param
     primary_param: max_leaf_nodes
     group_param: null
+  plots:
+    hgb_cv_curve: true
+    hgb_train_vs_cv: true
+    hgb_overfit_gap: true
+    hgb_fit_time: true
 
 models:
   linear_regression:

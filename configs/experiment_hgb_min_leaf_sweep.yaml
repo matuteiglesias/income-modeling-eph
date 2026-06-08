@@ -26,8 +26,27 @@ cv:
   return_train_score: true
 
 diagnostics:
-  sweep_type: hgb_single_param
-  primary_param: min_samples_leaf
+  enabled: true
+  profile: hgb_capacity_sweep
+  standard:
+    residual_summary: true
+    prediction_distribution_summary: true
+    error_by_income_decile: false
+  hgb:
+    enabled: true
+    basic_cv_summaries: true
+    top_configs: true
+    overfit_gap_by_config: true
+  sweeps:
+    enabled: true
+    sweep_type: hgb_single_param
+    primary_param: min_samples_leaf
+    group_param: null
+  plots:
+    hgb_cv_curve: true
+    hgb_train_vs_cv: true
+    hgb_overfit_gap: true
+    hgb_fit_time: true
 
 models:
   linear_regression:

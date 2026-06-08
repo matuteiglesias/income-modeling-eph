@@ -1,0 +1,201 @@
+experiments:
+  - experiment_id: debug_experiment
+    file: configs/experiment_debug.yaml
+    family: smoke
+    role: smoke
+    sample_regime: debug_5000
+    models: [linear_regression, ridge]
+    diagnostics_profile: smoke_minimal
+    thesis_section: runtime validation
+    priority: required
+    notes: Cheap linear smoke run; not thesis evidence.
+  - experiment_id: hgb_debug
+    file: configs/experiment_hgb_debug.yaml
+    family: smoke
+    role: smoke
+    sample_regime: debug_10000
+    models: [ridge, hist_gradient_boosting]
+    diagnostics_profile: smoke_minimal
+    thesis_section: runtime validation
+    priority: required
+    notes: Cheap HGB smoke run; not thesis evidence.
+  - experiment_id: baseline_income_prediction_v1
+    file: configs/experiment_baseline.yaml
+    family: thesis_core
+    role: benchmark
+    sample_regime: full
+    models: [linear_regression, ridge, lasso, hist_gradient_boosting, mlp]
+    diagnostics_profile: thesis_core
+    thesis_section: core predictive comparison
+    priority: required
+    notes: Main baseline comparison across model families.
+  - experiment_id: hgb_quick_benchmark_v1
+    file: configs/experiment_hgb_quick_benchmark.yaml
+    family: thesis_core
+    role: benchmark
+    sample_regime: sweep_100000
+    models: [hist_gradient_boosting]
+    diagnostics_profile: thesis_core
+    thesis_section: core predictive comparison
+    priority: useful
+    notes: Fast stable HGB benchmark with clean geography.
+  - experiment_id: hgb_quick_clean_geo_v1
+    file: configs/experiment_hgb_quick_clean_geo_v1.yaml
+    family: thesis_core
+    role: benchmark
+    sample_regime: sweep_5000
+    models: [hist_gradient_boosting]
+    diagnostics_profile: thesis_core
+    thesis_section: core predictive comparison; geography leakage anchor
+    priority: required
+    notes: Conservative clean-geography anchor for the geo probe.
+  - experiment_id: regularization_sweep_v1
+    file: configs/experiment_regularization_sweep.yaml
+    family: regularization
+    role: sweep
+    sample_regime: full_50000
+    models: [linear_regression, ridge, lasso]
+    diagnostics_profile: regularization_interpretation
+    thesis_section: why not linear
+    priority: useful
+    notes: Interprets whether regularization changes the linear frontier.
+  - experiment_id: hgb_pilot_v1
+    file: configs/experiment_hgb_pilot.yaml
+    family: hgb_tuning
+    role: optional
+    sample_regime: debug_20000
+    models: [ridge, hist_gradient_boosting]
+    diagnostics_profile: hgb_capacity_sweep
+    thesis_section: why this HGB benchmark
+    priority: optional
+    notes: Optional pilot tuning run.
+  - experiment_id: hgb_sweep_v1
+    file: configs/experiment_hgb_sweep.yaml
+    family: hgb_tuning
+    role: sweep
+    sample_regime: sweep_100000
+    models: [hist_gradient_boosting]
+    diagnostics_profile: hgb_capacity_sweep
+    thesis_section: why this HGB benchmark
+    priority: optional
+    notes: Broad HGB grid; expensive and not thesis-core.
+  - experiment_id: hgb_leaf_capacity_sweep_v1
+    file: configs/experiment_hgb_leaf_capacity_sweep.yaml
+    family: hgb_tuning
+    role: sweep
+    sample_regime: sweep_100000
+    models: [hist_gradient_boosting]
+    diagnostics_profile: hgb_capacity_sweep
+    thesis_section: why this HGB benchmark
+    priority: useful
+    notes: Single-parameter max_leaf_nodes sweep.
+  - experiment_id: hgb_min_leaf_sweep_v1
+    file: configs/experiment_hgb_min_leaf_sweep.yaml
+    family: hgb_tuning
+    role: sweep
+    sample_regime: sweep_100000
+    models: [hist_gradient_boosting]
+    diagnostics_profile: hgb_capacity_sweep
+    thesis_section: why this HGB benchmark
+    priority: useful
+    notes: Single-parameter min_samples_leaf sweep.
+  - experiment_id: hgb_lr_iter_sweep_v1
+    file: configs/experiment_hgb_lr_iter_sweep.yaml
+    family: hgb_tuning
+    role: sweep
+    sample_regime: sweep_100000
+    models: [hist_gradient_boosting]
+    diagnostics_profile: hgb_capacity_sweep
+    thesis_section: why this HGB benchmark
+    priority: useful
+    notes: Learning-rate by iteration-budget sweep.
+  - experiment_id: hgb_l2_sweep_v1
+    file: configs/experiment_hgb_l2_sweep.yaml
+    family: hgb_tuning
+    role: sweep
+    sample_regime: sweep_100000
+    models: [hist_gradient_boosting]
+    diagnostics_profile: hgb_capacity_sweep
+    thesis_section: why this HGB benchmark
+    priority: useful
+    notes: HGB L2 regularization sweep.
+  - experiment_id: hgb_quick_no_geo_v1
+    file: configs/experiment_hgb_quick_no_geo_v1.yaml
+    family: geo_probe
+    role: robustness
+    sample_regime: sweep_5000
+    models: [hist_gradient_boosting]
+    diagnostics_profile: geo_leakage_probe
+    thesis_section: feature validity and leakage risk
+    priority: useful
+    notes: Removes geography to estimate clean geography contribution.
+  - experiment_id: hgb_quick_with_geo_ranks_v1
+    file: configs/experiment_hgb_quick_with_geo_ranks_v1.yaml
+    family: geo_probe
+    role: robustness
+    sample_regime: sweep_5000
+    models: [hist_gradient_boosting]
+    diagnostics_profile: geo_leakage_probe
+    thesis_section: feature validity and leakage risk
+    priority: useful
+    notes: Adds leakage-suspect geographic rank variables.
+  - experiment_id: hgb_quick_shuffled_geo_ranks_v1
+    file: configs/experiment_hgb_quick_shuffled_geo_ranks_v1.yaml
+    family: geo_probe
+    role: robustness
+    sample_regime: sweep_5000
+    models: [hist_gradient_boosting]
+    diagnostics_profile: geo_leakage_probe
+    thesis_section: feature validity and leakage risk
+    priority: useful
+    notes: Placebo variant with shuffled geographic rank mappings.
+  - experiment_id: linear_region_fe_v1
+    file: configs/experiment_linear_region_fe_v1.yaml
+    family: fixed_effects
+    role: interpretability
+    sample_regime: sweep_5000
+    models: [linear_regression, ridge]
+    diagnostics_profile: linear_fe_interpretation
+    thesis_section: why not linear
+    priority: useful
+    notes: Region fixed-effect interpretation.
+  - experiment_id: linear_aglo_fe_v1
+    file: configs/experiment_linear_aglo_fe_v1.yaml
+    family: fixed_effects
+    role: interpretability
+    sample_regime: sweep_5000
+    models: [linear_regression, ridge]
+    diagnostics_profile: linear_fe_interpretation
+    thesis_section: why not linear
+    priority: useful
+    notes: AGLOMERADO fixed-effect interpretation.
+  - experiment_id: linear_year_fe_v1
+    file: configs/experiment_linear_year_fe_v1.yaml
+    family: fixed_effects
+    role: interpretability
+    sample_regime: sweep_5000
+    models: [linear_regression, ridge]
+    diagnostics_profile: linear_fe_interpretation
+    thesis_section: why not linear
+    priority: useful
+    notes: Year fixed-effect interpretation.
+  - experiment_id: linear_quarter_fe_v1
+    file: configs/experiment_linear_quarter_fe_v1.yaml
+    family: fixed_effects
+    role: interpretability
+    sample_regime: sweep_5000
+    models: [linear_regression, ridge]
+    diagnostics_profile: linear_fe_interpretation
+    thesis_section: why not linear
+    priority: useful
+    notes: Quarter fixed-effect interpretation.
+  - experiment_id: linear_aglo_year_fe_v1
+    file: configs/experiment_linear_aglo_year_fe_v1.yaml
+    family: fixed_effects
+    role: interpretability
+    sample_regime: sweep_5000
+    models: [linear_regression, ridge]
+    diagnostics_profile: linear_fe_interpretation
+    thesis_section: why not linear
+    priority: optional
+    notes: AGLOMERADO by year interaction fixed-effect interpretation.

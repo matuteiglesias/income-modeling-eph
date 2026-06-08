@@ -36,6 +36,28 @@ cv:
 artifacts:
   training_frame_sample_n: 10
 
+diagnostics:
+  enabled: true
+  profile: geo_leakage_probe
+  standard:
+    residual_summary: true
+    error_by_income_decile: true
+    prediction_distribution_summary: true
+    model_pairwise_error_comparison: false
+    metric_gaps: false
+  distribution:
+    compression_summary: true
+    decile_tail_summary: true
+  comparison:
+    family: geo_leakage_probe
+    variant: no_geo
+    anchor_variant: clean_geo
+  plots:
+    observed_vs_predicted: true
+    prediction_distribution: true
+    mae_by_income_decile: true
+    mean_residual_by_income_decile: true
+
 models:
   linear_regression:
     enabled: false

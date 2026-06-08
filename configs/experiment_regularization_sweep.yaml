@@ -25,13 +25,28 @@ cv:
 
 diagnostics:
   enabled: true
-  profile: sweep
+  profile: regularization_interpretation
+  standard:
+    residual_summary: true
+    prediction_distribution_summary: true
+    error_by_income_decile: false
   coefficients:
     enabled: true
+    best_coefficients: true
+    standardized_coefficients: true
+    coefficient_stability: false
   regularization:
     enabled: true
     alpha_curves: true
     coefficient_paths: true
+    coefficient_norms: true
+    sparsity_summary: true
+  plots:
+    ridge_cv_r2_vs_alpha: true
+    lasso_cv_r2_vs_alpha: true
+    ridge_coef_l2_norm_vs_alpha: true
+    lasso_coef_l1_norm_vs_alpha: true
+    lasso_nonzero_coefficients_vs_alpha: true
 
 models:
   linear_regression:

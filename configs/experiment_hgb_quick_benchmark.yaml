@@ -1,31 +1,72 @@
 experiment:
   id: hgb_quick_benchmark_v1
+  kind: benchmark
   random_seed: 42
 
 runtime:
   mode: sweep
-  sample_n: 5000
+  sample_n: 100000
+  allow_full_run: false
   enabled_models:
     - hist_gradient_boosting
-  allow_full_run: true
 
-artifacts:
-  training_frame_sample_n: 10
-
-observability:
-  sklearn_verbose: 2
-  heartbeat_seconds: 10
+feature_view:
+  name: clean_geo
+  drop_columns:
+    - AGLO_rk
+    - Reg_rk
 
 data:
   processed_dataset: data/processed/modeling_dataset.parquet
   split_assignments: data/processed/split_assignments.csv
+
+split:
+  train_size: 0.70
+  test_size: 0.20
+  validation_size: 0.10
+  strategy: random_individual
+  random_state: 42
 
 cv:
   folds: 3
   scoring: r2
   return_train_score: true
 
+artifacts:
+  training_frame_sample_n: 10
+
+diagnostics:
+  enabled: true
+  profile: thesis_core
+  standard:
+    residual_summary: true
+    error_by_income_decile: true
+    prediction_distribution_summary: true
+    model_pairwise_error_comparison: true
+    metric_gaps: true
+  plots:
+    observed_vs_predicted: true
+    prediction_distribution: true
+    residual_distribution: true
+    mae_by_income_decile: true
+    mean_residual_by_income_decile: true
+  distribution:
+    compression_summary: true
+    decile_tail_summary: true
+
 models:
+  linear_regression:
+    enabled: false
+    grid: {}
+
+  ridge:
+    enabled: false
+    grid: {}
+
+  lasso:
+    enabled: false
+    grid: {}
+
   hist_gradient_boosting:
     enabled: true
     grid:
@@ -38,7 +79,15 @@ models:
       reg__early_stopping: [false]
       reg__random_state: [42]
 
+  mlp:
+    enabled: false
+    grid: {}
+
 outputs:
-  runs_dir: reports/runs
   model_comparison: reports/tables/model_comparison_hgb_quick_benchmark.csv
   experiment_card: reports/experiment_cards/hgb_quick_benchmark.json
+  runs_dir: reports/runs
+
+observability:
+  heartbeat_seconds: 10
+  sklearn_verbose: 2

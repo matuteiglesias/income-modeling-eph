@@ -108,6 +108,12 @@ Supported profiles are:
 - `minimal`: plans only core run-time tables.
 - `standard`: plans residuals, deciles, prediction distributions, metric gaps, and pairwise comparisons where possible.
 - `sweep`: standard diagnostics plus sweep-specific diagnostics where applicable.
+- `smoke_minimal`: cheap runtime sanity checks that should not be treated as thesis evidence.
+- `thesis_core`: main thesis evidence for predictive comparison, distribution compression, and decile-error claims.
+- `hgb_capacity_sweep`: HGB tuning evidence for operating regions, cost-performance tradeoffs, overfit gaps, and plateau behavior.
+- `regularization_interpretation`: Ridge/Lasso interpretation of the linear frontier, alpha curves, coefficient norms, and sparsity.
+- `geo_leakage_probe`: controlled geography variants for clean geography, no geography, target-derived ranks, and shuffled-rank placebo checks.
+- `linear_fe_interpretation`: fixed-effect linear interpretation with coefficient and reference-level diagnostics.
 
 ## Why guards are separate
 
