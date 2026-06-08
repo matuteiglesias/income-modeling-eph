@@ -38,6 +38,20 @@ from eph_income.contracts import (
 )
 from eph_income.diagnostics import _write_hgb_sweep_diagnostics
 from eph_income.diagnostics_registry import build_diagnostics_plan
+from eph_income.guards import (
+    GuardDecision,
+    apply_guard_decision,
+    build_guard_plan,
+    build_multicollinearity_audit,
+    decide_multicollinearity_action,
+    fixed_effect_design_guard,
+    forbidden_predictors_guard,
+    multicollinearity_guard_enabled,
+    runtime_mode_guard,
+    target_contract_guard,
+    write_guard_decisions,
+    write_guard_plan,
+)
 from eph_income.dataset import ROW_ID_COLUMN, get_metadata_path, resolve_project_path
 from eph_income.pipelines import MODEL_DISPLAY_NAMES, enabled_model_configs, make_model_pipeline
 from eph_income.splits import get_split_path, validate_split_assignments
@@ -134,11 +148,9 @@ def prepare_experiment_frame(
     )
 
     target = validate_target_contract(feature_contract)["name"]
-    forbidden = get_forbidden_predictors(feature_contract)
     feature_columns = [
         column for column in dataset.columns if column not in {ROW_ID_COLUMN, target}
     ]
-    assert_no_forbidden_predictors(feature_columns, forbidden)
     return joined, feature_columns, target
 
 
@@ -541,7 +553,15 @@ def _prepare_run_directory(experiment_config: Mapping[str, Any], run_id: str) ->
     if run_dir.exists():
         suffix = datetime.now(timezone.utc).strftime("%f")
         run_dir = run_dir.with_name(f"{run_dir.name}_{suffix}")
-    for child in ["metrics", "predictions", "cv_results", "diagnostics", "artifacts", "plots"]:
+    for child in [
+        "metrics",
+        "predictions",
+        "cv_results",
+        "diagnostics",
+        "artifacts",
+        "plots",
+        "guards",
+    ]:
         (run_dir / child).mkdir(parents=True, exist_ok=True)
     return run_dir
 
@@ -1198,23 +1218,56 @@ def run_experiment(
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Run a debug or guarded full baseline model comparison and write outputs."""
 
-    mode = _validate_runtime_mode(experiment_config, allow_full_run=allow_full_run)
     run_id = _make_run_id(experiment_config)
     run_dir = _prepare_run_directory(experiment_config, run_id)
+    guard_decisions: list[GuardDecision] = []
+    guard_plan = build_guard_plan(experiment_config)
+    guard_plan_path = write_guard_plan(run_dir, run_id, guard_plan)
+    guard_decisions_path = run_dir / "guards" / "guard_decisions.json"
 
-    joined, feature_columns, target = prepare_experiment_frame(experiment_config, feature_contract)
+    try:
+        mode = _validate_runtime_mode(experiment_config, allow_full_run=allow_full_run)
+        runtime_decision = runtime_mode_guard(mode, guard_plan)
+        guard_decisions.append(runtime_decision)
+        apply_guard_decision(runtime_decision)
+
+        target_decision = target_contract_guard(feature_contract, guard_plan)
+        guard_decisions.append(target_decision)
+        apply_guard_decision(target_decision)
+
+        joined, feature_columns, target = prepare_experiment_frame(experiment_config, feature_contract)
+        forbidden_decision = forbidden_predictors_guard(
+            feature_contract, feature_columns, guard_plan
+        )
+        guard_decisions.append(forbidden_decision)
+        apply_guard_decision(forbidden_decision)
+    except Exception:
+        write_guard_decisions(run_dir, run_id, guard_decisions)
+        raise
     joined, feature_columns, feature_view_metadata = apply_feature_view(
         experiment_config=experiment_config,
         feature_contract=feature_contract,
         joined=joined,
         feature_columns=feature_columns,
     )
-    joined, feature_columns, fixed_effects_used = apply_fixed_effects(
-        experiment_config=experiment_config,
-        feature_contract=feature_contract,
-        joined=joined,
-        feature_columns=feature_columns,
-    )
+    try:
+        joined, feature_columns, fixed_effects_used = apply_fixed_effects(
+            experiment_config=experiment_config,
+            feature_contract=feature_contract,
+            joined=joined,
+            feature_columns=feature_columns,
+        )
+        fixed_effect_decision = fixed_effect_design_guard(fixed_effects_used, guard_plan)
+        guard_decisions.append(fixed_effect_decision)
+        apply_guard_decision(fixed_effect_decision)
+        final_forbidden_decision = forbidden_predictors_guard(
+            feature_contract, feature_columns, guard_plan
+        )
+        guard_decisions.append(final_forbidden_decision)
+        apply_guard_decision(final_forbidden_decision)
+    except Exception:
+        write_guard_decisions(run_dir, run_id, guard_decisions)
+        raise
     fixed_effect_drop_first_columns = _fixed_effect_drop_first_columns(fixed_effects_used)
     train = joined[joined["split"] == "train"]
     test = joined[joined["split"] == "test"]
@@ -1249,6 +1302,21 @@ def run_experiment(
     )
 
     enabled_models = list(enabled_model_configs(experiment_config).keys())
+    multicollinearity_artifact_paths: dict[str, Path] = {}
+    multicollinearity_summary: dict[str, Any] | None = None
+    multicollinearity_config = guard_plan["guards"].get("multicollinearity", {})
+    if multicollinearity_guard_enabled(guard_plan):
+        _, multicollinearity_summary, multicollinearity_artifact_paths = (
+            build_multicollinearity_audit(
+                train_frame=train,
+                feature_columns=feature_columns,
+                run_id=run_id,
+                guard_config=multicollinearity_config,
+                run_dir=run_dir,
+                random_seed=random_seed,
+            )
+        )
+
     diagnostics_plan = build_diagnostics_plan(
         experiment_config=experiment_config,
         enabled_models=enabled_models,
@@ -1275,6 +1343,19 @@ def run_experiment(
     predictions_by_split: dict[str, list[pd.DataFrame]] = {"test": [], "validation": []}
 
     for model_key, model_config in enabled_model_configs(experiment_config).items():
+        if multicollinearity_summary is not None:
+            multicollinearity_decision = decide_multicollinearity_action(
+                audit_summary=multicollinearity_summary,
+                model_key=model_key,
+                guard_config=multicollinearity_config,
+            )
+            guard_decisions.append(multicollinearity_decision)
+            try:
+                apply_guard_decision(multicollinearity_decision)
+            except Exception:
+                write_guard_decisions(run_dir, run_id, guard_decisions)
+                raise
+
         model_name = MODEL_DISPLAY_NAMES.get(model_key, model_key)
         pipeline = make_model_pipeline(
             model_key,
@@ -1456,6 +1537,8 @@ def run_experiment(
         "error_by_income_decile": str(diagnostic_paths["error_by_income_decile"]),
         "prediction_distribution_summary": str(diagnostic_paths["prediction_distribution_summary"]),
         "diagnostics_plan": str(diagnostics_plan_path),
+        "guard_plan": str(guard_plan_path),
+        "guard_decisions": str(guard_decisions_path),
     }
     hgb_diagnostics = {
         path.stem: str(path) for path in sorted((run_dir / "diagnostics").glob("hgb_*.csv"))
@@ -1476,9 +1559,12 @@ def run_experiment(
     manifest_paths.update(hgb_sweep_markdown)
     if fixed_effect_coefficients_path is not None:
         manifest_paths["fixed_effect_coefficients"] = str(fixed_effect_coefficients_path)
+    manifest_paths.update({key: str(path) for key, path in multicollinearity_artifact_paths.items()})
     manifest_paths.update({key: str(path) for key, path in training_frame_sample_paths.items()})
     if output_path is not None:
         manifest_paths["model_comparison_convenience_copy"] = str(output_path)
+
+    guard_decisions_path = write_guard_decisions(run_dir, run_id, guard_decisions)
 
     manifest = {
         "run_id": run_id,

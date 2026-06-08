@@ -865,11 +865,17 @@ def test_hgb_quick_geography_smoke_configs_load_and_share_governed_grid() -> Non
         "hgb_quick_no_geo_v1",
         "hgb_quick_shuffled_geo_ranks_v1",
     ]
+    expected_sample_n_by_id = {
+        "hgb_quick_with_geo_ranks_v1": 25000,
+        "hgb_quick_clean_geo_v1": 5000,
+        "hgb_quick_no_geo_v1": 25000,
+        "hgb_quick_shuffled_geo_ranks_v1": 25000,
+    }
     for config in configs:
         assert config["experiment"]["kind"] == "geography_leakage_probe"
         assert config["runtime"] == {
             "mode": "sweep",
-            "sample_n": 5000,
+            "sample_n": expected_sample_n_by_id[config["experiment"]["id"]],
             "enabled_models": ["hist_gradient_boosting"],
         }
         assert config["artifacts"] == {"training_frame_sample_n": 10}
@@ -1259,7 +1265,7 @@ def test_linear_fixed_effect_smoke_configs_load_and_match_governance() -> None:
         parts = experiment_id.removesuffix("_v1").split("_")
         assert parts[0] == "linear"
         assert parts[-1] == "fe"
-        assert config["runtime"] == {"mode": "sweep", "sample_n": 5000}
+        assert config["runtime"] == {"mode": "sweep", "sample_n": 50000}
         assert config["artifacts"] == {"training_frame_sample_n": 10}
         assert config["observability"] == {"heartbeat_seconds": 10, "sklearn_verbose": 2}
         assert config["cv"] == {"folds": 3, "scoring": "r2", "return_train_score": True}
