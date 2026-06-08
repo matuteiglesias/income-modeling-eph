@@ -27,16 +27,13 @@ cv:
 
 diagnostics:
   enabled: true
-  profile: hgb_capacity_sweep
+  profile: sweep
   standard:
     residual_summary: true
+    error_by_income_decile: true
     prediction_distribution_summary: true
-    error_by_income_decile: false
   hgb:
-    enabled: true
-    basic_cv_summaries: true
-    top_configs: true
-    overfit_gap_by_config: true
+    enabled: auto
   sweeps:
     enabled: true
     sweep_type: hgb_single_param

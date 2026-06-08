@@ -541,12 +541,21 @@ def test_targeted_hgb_sweep_configs_declare_single_question_grids() -> None:
     leaf = load_experiment_config("configs/experiment_hgb_leaf_capacity_sweep.yaml")
     leaf_grid = leaf["models"]["hist_gradient_boosting"]["grid"]
     assert leaf["experiment"]["id"] == "hgb_leaf_capacity_sweep_v1"
-    assert leaf["diagnostics"]["profile"] == "hgb_capacity_sweep"
-    assert leaf["diagnostics"]["sweeps"] == {
+    assert leaf["diagnostics"] == {
         "enabled": True,
-        "sweep_type": "hgb_single_param",
-        "primary_param": "max_leaf_nodes",
-        "group_param": None,
+        "profile": "sweep",
+        "standard": {
+            "residual_summary": True,
+            "error_by_income_decile": True,
+            "prediction_distribution_summary": True,
+        },
+        "hgb": {"enabled": "auto"},
+        "sweeps": {
+            "enabled": True,
+            "sweep_type": "hgb_single_param",
+            "primary_param": "max_leaf_nodes",
+            "group_param": None,
+        },
     }
     assert leaf_grid["reg__max_leaf_nodes"] == [7, 15, 23, 31, 47, 63, 95, 127]
     assert leaf_grid["reg__learning_rate"] == [0.05]
@@ -854,11 +863,17 @@ def test_hgb_quick_geography_smoke_configs_load_and_share_governed_grid() -> Non
         "hgb_quick_no_geo_v1",
         "hgb_quick_shuffled_geo_ranks_v1",
     ]
+    expected_sample_n_by_id = {
+        "hgb_quick_with_geo_ranks_v1": 25000,
+        "hgb_quick_clean_geo_v1": 5000,
+        "hgb_quick_no_geo_v1": 25000,
+        "hgb_quick_shuffled_geo_ranks_v1": 25000,
+    }
     for config in configs:
         assert config["experiment"]["kind"] == "geography_leakage_probe"
         assert config["runtime"] == {
             "mode": "sweep",
-            "sample_n": 5000,
+            "sample_n": expected_sample_n_by_id[config["experiment"]["id"]],
             "enabled_models": ["hist_gradient_boosting"],
         }
         assert config["artifacts"] == {"training_frame_sample_n": 10}
@@ -1248,7 +1263,7 @@ def test_linear_fixed_effect_smoke_configs_load_and_match_governance() -> None:
         parts = experiment_id.removesuffix("_v1").split("_")
         assert parts[0] == "linear"
         assert parts[-1] == "fe"
-        assert config["runtime"] == {"mode": "sweep", "sample_n": 5000}
+        assert config["runtime"] == {"mode": "sweep", "sample_n": 50000}
         assert config["artifacts"] == {"training_frame_sample_n": 10}
         assert config["observability"] == {"heartbeat_seconds": 10, "sklearn_verbose": 2}
         assert config["cv"] == {"folds": 3, "scoring": "r2", "return_train_score": True}
