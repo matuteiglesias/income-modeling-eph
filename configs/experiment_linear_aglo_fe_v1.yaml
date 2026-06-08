@@ -5,7 +5,7 @@ experiment:
 
 runtime:
   mode: sweep
-  sample_n: 5000
+  sample_n: 50000
 
 feature_view:
   name: linear_aglo_fe_clean
