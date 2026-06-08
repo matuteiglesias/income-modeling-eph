@@ -24,7 +24,14 @@ cv:
   return_train_score: true
 
 diagnostics:
-  regularization_sweep: true
+  enabled: true
+  profile: sweep
+  coefficients:
+    enabled: true
+  regularization:
+    enabled: true
+    alpha_curves: true
+    coefficient_paths: true
 
 models:
   linear_regression:

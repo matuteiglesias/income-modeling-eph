@@ -40,6 +40,18 @@ cv:
 artifacts:
   training_frame_sample_n: 10
 
+diagnostics:
+  enabled: true
+  profile: standard
+  standard:
+    residual_summary: true
+    error_by_income_decile: true
+    prediction_distribution_summary: true
+  coefficients:
+    enabled: true
+    best_coefficients: true
+    fixed_effect_coefficients: true
+
 models:
   linear_regression:
     enabled: true

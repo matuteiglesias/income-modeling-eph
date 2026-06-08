@@ -26,8 +26,19 @@ cv:
   return_train_score: true
 
 diagnostics:
-  sweep_type: hgb_single_param
-  primary_param: max_leaf_nodes
+  enabled: true
+  profile: sweep
+  standard:
+    residual_summary: true
+    error_by_income_decile: true
+    prediction_distribution_summary: true
+  hgb:
+    enabled: auto
+  sweeps:
+    enabled: true
+    sweep_type: hgb_single_param
+    primary_param: max_leaf_nodes
+    group_param: null
 
 models:
   linear_regression:

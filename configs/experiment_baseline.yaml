@@ -27,6 +27,20 @@ cv:
   folds: 3
   scoring: r2
 
+diagnostics:
+  enabled: true
+  profile: standard
+  standard:
+    residual_summary: true
+    error_by_income_decile: true
+    prediction_distribution_summary: true
+    model_pairwise_error_comparison: true
+    metric_gaps: true
+  coefficients:
+    enabled: auto
+  hgb:
+    enabled: auto
+
 models:
   linear_regression:
     enabled: true

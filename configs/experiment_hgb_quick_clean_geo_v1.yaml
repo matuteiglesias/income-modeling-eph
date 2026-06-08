@@ -34,6 +34,18 @@ cv:
 artifacts:
   training_frame_sample_n: 10
 
+diagnostics:
+  enabled: true
+  profile: standard
+  standard:
+    residual_summary: true
+    error_by_income_decile: true
+    prediction_distribution_summary: true
+    model_pairwise_error_comparison: true
+    metric_gaps: true
+  hgb:
+    enabled: auto
+
 models:
   linear_regression:
     enabled: false
