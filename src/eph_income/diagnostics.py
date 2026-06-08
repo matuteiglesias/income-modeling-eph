@@ -22,6 +22,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from eph_income.diagnostics_registry import normalize_diagnostics_config
+
 REQUIRED_PREDICTION_COLUMNS = {
     "run_id",
     "model",
@@ -724,12 +726,16 @@ def _write_hgb_sweep_diagnostics(
     config: Mapping[str, Any],
     run_id: str | None,
 ) -> tuple[dict[str, Path], list[str]]:
-    diagnostics_config = config.get("diagnostics", {}) if isinstance(config, Mapping) else {}
-    if not isinstance(diagnostics_config, Mapping):
+    try:
+        diagnostics_config = normalize_diagnostics_config(config)
+    except (TypeError, ValueError):
         return {}, []
-    sweep_type = diagnostics_config.get("sweep_type")
-    primary_param = diagnostics_config.get("primary_param")
-    group_param = diagnostics_config.get("group_param")
+    sweep_config = diagnostics_config["sweeps"]
+    if not diagnostics_config["enabled"] or not bool(sweep_config.get("enabled")):
+        return {}, []
+    sweep_type = sweep_config.get("sweep_type")
+    primary_param = sweep_config.get("primary_param")
+    group_param = sweep_config.get("group_param")
     if sweep_type not in {"hgb_lr_iter", "hgb_single_param"} or not primary_param:
         return {}, []
     cv_file = _hgb_cv_file(run_dir)

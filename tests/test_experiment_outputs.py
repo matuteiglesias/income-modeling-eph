@@ -182,6 +182,7 @@ def test_debug_experiment_writes_local_run_artifacts(tmp_path) -> None:
         "diagnostics/residual_summary.csv",
         "diagnostics/error_by_income_decile.csv",
         "diagnostics/prediction_distribution_summary.csv",
+        "diagnostics/diagnostics_plan.json",
     ]
     for relative_path in expected_artifacts:
         assert (run_dir / relative_path).exists(), relative_path
@@ -212,6 +213,7 @@ def test_debug_experiment_writes_local_run_artifacts(tmp_path) -> None:
     manifest = json.loads((run_dir / "run_manifest.json").read_text(encoding="utf-8"))
     assert manifest["canonical_owner"] == "run_directory"
     assert manifest["paths"]["model_comparison_convenience_copy"] == str(output_csv)
+    assert manifest["paths"]["diagnostics_plan"] == str(run_dir / "diagnostics" / "diagnostics_plan.json")
 
 
 def test_baseline_config_enables_all_state6_models() -> None:
@@ -538,8 +540,20 @@ def test_targeted_hgb_sweep_configs_declare_single_question_grids() -> None:
     leaf_grid = leaf["models"]["hist_gradient_boosting"]["grid"]
     assert leaf["experiment"]["id"] == "hgb_leaf_capacity_sweep_v1"
     assert leaf["diagnostics"] == {
-        "sweep_type": "hgb_single_param",
-        "primary_param": "max_leaf_nodes",
+        "enabled": True,
+        "profile": "sweep",
+        "standard": {
+            "residual_summary": True,
+            "error_by_income_decile": True,
+            "prediction_distribution_summary": True,
+        },
+        "hgb": {"enabled": "auto"},
+        "sweeps": {
+            "enabled": True,
+            "sweep_type": "hgb_single_param",
+            "primary_param": "max_leaf_nodes",
+            "group_param": None,
+        },
     }
     assert leaf_grid["reg__max_leaf_nodes"] == [7, 15, 23, 31, 47, 63, 95, 127]
     assert leaf_grid["reg__learning_rate"] == [0.05]
