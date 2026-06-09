@@ -809,6 +809,143 @@ def _write_hgb_sweep_diagnostics(
     return outputs, []
 
 
+
+def _first_existing_column(frame: pd.DataFrame, candidates: list[str]) -> str:
+    """Return the first available column from a list of aliases."""
+
+    for column in candidates:
+        if column in frame.columns:
+            return column
+    raise KeyError(f"Expected one of these columns: {candidates}")
+
+
+def _first_float(frame: pd.DataFrame, column: str) -> float:
+    """Return the first value of a column as float, or NaN for an empty frame."""
+
+    if frame.empty or column not in frame.columns:
+        return float("nan")
+    return float(frame[column].iloc[0])
+
+
+def compute_distribution_compression_summary(predictions: pd.DataFrame) -> pd.DataFrame:
+    """Summarize distributional compression and tail errors by model and split.
+
+    This table is intentionally canonical: it uses stable thesis-facing names even
+    when upstream diagnostics use older aliases such as n/mae or row_count/abs_error_mean.
+    """
+
+    if predictions.empty:
+        return pd.DataFrame(
+            columns=[
+                "run_id",
+                "model",
+                "split",
+                "row_count",
+                "r2",
+                "mae",
+                "mse",
+                "y_true_mean",
+                "y_pred_mean",
+                "y_true_std",
+                "y_pred_std",
+                "std_ratio",
+                "y_true_min",
+                "y_pred_min",
+                "y_true_max",
+                "y_pred_max",
+                "upper_tail_max_gap",
+                "lower_tail_min_gap",
+                "bottom_decile_mae",
+                "top_decile_mae",
+                "middle_deciles_mae",
+                "bottom_to_middle_mae_ratio",
+                "top_to_middle_mae_ratio",
+                "extreme_to_middle_mae_ratio",
+                "bottom_decile_residual_mean",
+                "top_decile_residual_mean",
+                "tail_residual_gap",
+            ]
+        )
+
+    residual_summary = compute_residual_summary(predictions)
+    error_by_decile = compute_error_by_income_decile(predictions)
+
+    count_col = _first_existing_column(residual_summary, ["row_count", "n"])
+    overall_mae_col = _first_existing_column(residual_summary, ["mae", "abs_error_mean"])
+    overall_mse_col = _first_existing_column(residual_summary, ["mse", "squared_error_mean"])
+    decile_mae_col = _first_existing_column(error_by_decile, ["mae", "abs_error_mean"])
+
+    rows: list[dict[str, Any]] = []
+    group_cols = ["run_id", "model", "split"]
+
+    for _, summary_row in residual_summary.iterrows():
+        run_id = summary_row["run_id"]
+        model = summary_row["model"]
+        split = summary_row["split"]
+
+        pred_sub = predictions[
+            (predictions["run_id"] == run_id)
+            & (predictions["model"] == model)
+            & (predictions["split"] == split)
+        ]
+        dec_sub = error_by_decile[
+            (error_by_decile["run_id"] == run_id)
+            & (error_by_decile["model"] == model)
+            & (error_by_decile["split"] == split)
+        ].copy()
+
+        bottom = dec_sub[dec_sub["income_decile"] == 1]
+        top = dec_sub[dec_sub["income_decile"] == 10]
+        middle = dec_sub[dec_sub["income_decile"].between(4, 7)]
+
+        bottom_mae = _first_float(bottom, decile_mae_col)
+        top_mae = _first_float(top, decile_mae_col)
+        middle_mae = float(middle[decile_mae_col].mean()) if not middle.empty else float("nan")
+
+        y_true_std = float(summary_row["y_true_std"])
+        y_pred_std = float(summary_row["y_pred_std"])
+        std_ratio = y_pred_std / y_true_std if y_true_std else float("nan")
+
+        bottom_residual = _first_float(bottom, "residual_mean")
+        top_residual = _first_float(top, "residual_mean")
+
+        rows.append(
+            {
+                "run_id": run_id,
+                "model": model,
+                "split": split,
+                "row_count": int(summary_row[count_col]),
+                "r2": float(summary_row["r2"]) if "r2" in residual_summary.columns else float("nan"),
+                "mae": float(summary_row[overall_mae_col]),
+                "mse": float(summary_row[overall_mse_col]),
+                "y_true_mean": float(summary_row["y_true_mean"]),
+                "y_pred_mean": float(summary_row["y_pred_mean"]),
+                "y_true_std": y_true_std,
+                "y_pred_std": y_pred_std,
+                "std_ratio": float(std_ratio),
+                "y_true_min": float(pred_sub["y_true"].min()),
+                "y_pred_min": float(pred_sub["y_pred"].min()),
+                "y_true_max": float(pred_sub["y_true"].max()),
+                "y_pred_max": float(pred_sub["y_pred"].max()),
+                "upper_tail_max_gap": float(pred_sub["y_true"].max() - pred_sub["y_pred"].max()),
+                "lower_tail_min_gap": float(pred_sub["y_pred"].min() - pred_sub["y_true"].min()),
+                "bottom_decile_mae": bottom_mae,
+                "top_decile_mae": top_mae,
+                "middle_deciles_mae": middle_mae,
+                "bottom_to_middle_mae_ratio": bottom_mae / middle_mae if middle_mae else float("nan"),
+                "top_to_middle_mae_ratio": top_mae / middle_mae if middle_mae else float("nan"),
+                "extreme_to_middle_mae_ratio": (
+                    max(bottom_mae, top_mae) / middle_mae if middle_mae else float("nan")
+                ),
+                "bottom_decile_residual_mean": bottom_residual,
+                "top_decile_residual_mean": top_residual,
+                "tail_residual_gap": top_residual - bottom_residual,
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
 def _write_notes(run_dir: Path, notes: list[str], generated: list[Path]) -> Path:
     notes_path = run_dir / "diagnostics" / "diagnostics_build_notes.md"
     lines = ["# Diagnostics build notes", "", "## Generated artifacts", ""]
@@ -822,8 +959,16 @@ def _write_notes(run_dir: Path, notes: list[str], generated: list[Path]) -> Path
     return notes_path
 
 
-def build_diagnostics(run_dir: str | Path, *, split: str = "test") -> dict[str, Any]:
+def build_diagnostics(
+    run_dir: str | Path,
+    *,
+    split: str = "test",
+    max_scatter_points: int = 20_000,
+    min_distribution_rows: int = 100,
+    min_decile_points: int = 3,
+) -> dict[str, Any]:
     """Build diagnostic tables and plots from archived run artifacts."""
+    _ = (max_scatter_points, min_distribution_rows, min_decile_points)
 
     run_path = _as_path(run_dir)
     if split not in PREDICTION_FILES:
@@ -844,18 +989,22 @@ def build_diagnostics(run_dir: str | Path, *, split: str = "test") -> dict[str, 
 
     residual_summary = compute_residual_summary(predictions)
     error_by_decile = compute_error_by_income_decile(predictions)
+    compression_summary = compute_distribution_compression_summary(predictions)
     pairwise = compute_pairwise_error_comparison(predictions)
     metric_gaps = compute_metric_gaps(model_comparison, run_id=str(run_id) if run_id else None)
 
     outputs: dict[str, Path] = {
         "residual_summary": diagnostics_dir / "residual_summary.csv",
         "error_by_income_decile": diagnostics_dir / "error_by_income_decile.csv",
+        "distribution_compression_summary": diagnostics_dir
+        / "distribution_compression_summary.csv",
         "model_pairwise_error_comparison": diagnostics_dir
         / "model_pairwise_error_comparison.csv",
         "metric_gaps": diagnostics_dir / "metric_gaps.csv",
     }
     residual_summary.to_csv(outputs["residual_summary"], index=False)
     error_by_decile.to_csv(outputs["error_by_income_decile"], index=False)
+    compression_summary.to_csv(outputs["distribution_compression_summary"], index=False)
     pairwise.to_csv(outputs["model_pairwise_error_comparison"], index=False)
     metric_gaps.to_csv(outputs["metric_gaps"], index=False)
 
@@ -864,11 +1013,6 @@ def build_diagnostics(run_dir: str | Path, *, split: str = "test") -> dict[str, 
     resolved_plan = diagnostics_plan.get("resolved", {}) if diagnostics_plan else {}
     distribution_plan = resolved_plan.get("distribution", {}) if isinstance(resolved_plan, Mapping) else {}
     plots_plan = resolved_plan.get("plots", {}) if isinstance(resolved_plan, Mapping) else {}
-    if isinstance(distribution_plan, Mapping) and distribution_plan.get("compression_summary"):
-        notes.append(
-            "Skipped distribution_compression_summary.csv: compression summary is planned "
-            "for this diagnostics profile but is not implemented yet."
-        )
     if isinstance(plots_plan, Mapping) and plots_plan.get("distribution_compression_by_model"):
         notes.append(
             "Skipped distribution_compression_by_model.png: compression plot is planned "

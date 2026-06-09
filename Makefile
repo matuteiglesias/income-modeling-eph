@@ -123,3 +123,76 @@ build-diagnostics:
 	$(PYTHON) scripts/04_build_diagnostics.py --run-dir "$(RUN_DIR)" --split "$(SPLIT)"
 
 all: build-dataset run-baseline report
+
+plan-experiment:
+	$(PYTHON) scripts/10_plan_experiment.py --config "$(EXPERIMENT_CONFIG)"
+
+thesis-plan:
+	$(PYTHON) scripts/10_plan_experiment.py --config configs/experiment_baseline.yaml
+	$(PYTHON) scripts/10_plan_experiment.py --config configs/experiment_hgb_quick_clean_geo_v1.yaml
+	$(PYTHON) scripts/10_plan_experiment.py --config configs/experiment_hgb_quick_benchmark.yaml
+
+
+.PHONY: thesis-smoke thesis-core thesis-regularization thesis-hgb-sweeps thesis-geo-probe thesis-fe thesis-diagnostics thesis-evidence thesis-check thesis-all
+
+THESIS_SPLITS ?= test validation
+THESIS_PROFILE ?= thesis_core
+
+thesis-smoke: build-dataset
+	$(MAKE) run-debug
+	$(MAKE) run-hgb-debug
+	$(PYTHON) scripts/07_build_thesis_diagnostics.py --family smoke --splits "$(THESIS_SPLITS)"
+
+thesis-core: build-dataset
+	$(MAKE) run-baseline
+	$(MAKE) run-hgb-quick-clean-geo
+	$(MAKE) run-hgb-quick-benchmark
+
+thesis-regularization: build-dataset
+	$(MAKE) run-regularization-sweep
+
+thesis-hgb-sweeps: build-dataset
+	$(MAKE) run-hgb-leaf-capacity-sweep
+	$(MAKE) run-hgb-min-leaf-sweep
+	$(MAKE) run-hgb-lr-iter-sweep
+	$(MAKE) run-hgb-l2-sweep
+
+thesis-geo-probe: build-dataset
+	$(MAKE) run-hgb-quick-clean-geo
+	$(MAKE) run-hgb-quick-no-geo
+	$(MAKE) run-hgb-quick-with-geo-ranks
+	$(MAKE) run-hgb-quick-shuffled-geo-ranks
+
+thesis-fe: build-dataset
+	$(MAKE) run-linear-region-fe
+	$(MAKE) run-linear-aglo-fe
+	$(MAKE) run-linear-year-fe
+	$(MAKE) run-linear-quarter-fe
+	$(MAKE) run-linear-aglo-year-fe
+
+thesis-core-fast: build-dataset
+	$(MAKE) run-hgb-quick-clean-geo
+	$(MAKE) run-hgb-quick-benchmark
+
+thesis-core-canonical: build-dataset
+	$(MAKE) run-baseline
+	$(MAKE) run-hgb-quick-clean-geo
+	$(MAKE) run-hgb-quick-benchmark
+
+thesis-all: lint test build-dataset thesis-core-fast thesis-diagnostics thesis-evidence thesis-check
+
+thesis-freeze: lint test build-dataset thesis-core-canonical thesis-diagnostics thesis-evidence thesis-check
+
+thesis-diagnostics:
+	$(PYTHON) scripts/07_build_thesis_diagnostics.py --priority "required" --splits "test validation"
+	
+thesis-evidence:
+	$(PYTHON) scripts/08_collect_thesis_artifacts.py --profile "$(THESIS_PROFILE)"
+
+thesis-check:
+	$(PYTHON) scripts/09_check_thesis_evidence.py --profile "$(THESIS_PROFILE)"
+
+.PHONY: thesis-support thesis-full
+
+thesis-support: thesis-regularization thesis-hgb-sweeps thesis-geo-probe thesis-fe
+

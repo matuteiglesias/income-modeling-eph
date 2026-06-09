@@ -28,12 +28,22 @@ def parse_args() -> argparse.Namespace:
         default="test",
         help="Split to use for split-specific plots. Default: test.",
     )
+    parser.add_argument("--max-scatter-points", type=int, default=20_000)
+    parser.add_argument("--min-distribution-rows", type=int, default=100)
+    parser.add_argument("--min-decile-points", type=int, default=3)
+
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    result = build_diagnostics(args.run_dir, split=args.split)
+    result = build_diagnostics(
+    args.run_dir,
+    split=args.split,
+    max_scatter_points=args.max_scatter_points,
+    min_distribution_rows=args.min_distribution_rows,
+    min_decile_points=args.min_decile_points,
+    )
     print(json.dumps(result, indent=2, sort_keys=True))
 
 
