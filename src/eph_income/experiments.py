@@ -200,6 +200,37 @@ def _regularization_path_summary(
     return pd.DataFrame(rows).sort_values("alpha").reset_index(drop=True)
 
 
+
+MIN_INFORMATIVE_PLOT_POINTS = 3
+
+
+def _has_informative_points(
+    frame: pd.DataFrame,
+    *,
+    x_column: str | None = None,
+    min_points: int = MIN_INFORMATIVE_PLOT_POINTS,
+) -> bool:
+    """Return whether a line/sweep plot has enough information to be useful."""
+
+    if len(frame) < min_points:
+        return False
+    if x_column is not None:
+        if x_column not in frame.columns:
+            return False
+        return int(frame[x_column].nunique(dropna=True)) >= min_points
+    return True
+
+
+def _write_plot_skip_reasons(path: Path, reasons: dict[str, str]) -> Path | None:
+    """Write plot skip reasons as run-local evidence."""
+
+    if not reasons:
+        return None
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(reasons, indent=2, sort_keys=True), encoding="utf-8")
+    return path
+
+
 def _plot_regularization_line(
     path_summary: pd.DataFrame,
     *,
@@ -224,13 +255,32 @@ def _plot_regularization_line(
     plt.close(fig)
 
 
+
 def _write_regularization_plots(
     run_dir: Path, model_name: str, path_summary: pd.DataFrame
 ) -> dict[str, Path]:
+    """Write regularization plots only when alpha path has enough points."""
+
     model_slug = model_name.lower()
     plots_dir = run_dir / "plots" / "regularization"
+    diagnostics_dir = run_dir / "diagnostics"
     plots_dir.mkdir(parents=True, exist_ok=True)
+
     outputs: dict[str, Path] = {}
+    skipped: dict[str, str] = {}
+
+    if not _has_informative_points(path_summary, x_column="alpha"):
+        skipped["regularization_plots"] = (
+            "Skipped regularization plots because the alpha path has fewer than "
+            f"{MIN_INFORMATIVE_PLOT_POINTS} distinct alpha values."
+        )
+        skip_path = _write_plot_skip_reasons(
+            diagnostics_dir / f"{model_name}_regularization_plot_skip_reasons.json",
+            skipped,
+        )
+        if skip_path is not None:
+            outputs[skip_path.name] = skip_path
+        return outputs
 
     cv_path = plots_dir / f"{model_slug}_cv_r2_vs_alpha.png"
     _plot_regularization_line(
@@ -280,6 +330,7 @@ def _write_regularization_plots(
             output_path=nonzero_path,
         )
         outputs[nonzero_path.name] = nonzero_path
+
         l1_path = plots_dir / "lasso_coef_l1_norm_vs_alpha.png"
         _plot_regularization_line(
             path_summary,
@@ -291,6 +342,7 @@ def _write_regularization_plots(
             output_path=l1_path,
         )
         outputs[l1_path.name] = l1_path
+
     return outputs
 
 
@@ -412,8 +464,9 @@ def _plot_hgb_train_vs_cv_top_configs(
     plt.close(fig)
 
 
+
 def _write_hgb_diagnostics(run_dir: Path, cv_results: pd.DataFrame) -> dict[str, Path]:
-    """Write HGB-specific tables and plots from archived GridSearchCV results."""
+    """Write HGB tables and only produce sweep plots when they are informative."""
 
     summary = _hgb_cv_results_summary(cv_results)
     diagnostics_dir = run_dir / "diagnostics"
@@ -431,6 +484,22 @@ def _write_hgb_diagnostics(run_dir: Path, cv_results: pd.DataFrame) -> dict[str,
         paths["hgb_overfit_gap_by_config"], index=False
     )
 
+    skipped: dict[str, str] = {}
+
+    # Global guard: a one- or two-configuration HGB run is a benchmark, not a sweep.
+    if len(summary) < MIN_INFORMATIVE_PLOT_POINTS:
+        skipped["hgb_sweep_plots"] = (
+            "Skipped HGB sweep plots because cv_results contains fewer than "
+            f"{MIN_INFORMATIVE_PLOT_POINTS} configurations. Tables were still written."
+        )
+        skip_path = _write_plot_skip_reasons(
+            diagnostics_dir / "hgb_plot_skip_reasons.json",
+            skipped,
+        )
+        if skip_path is not None:
+            paths["hgb_plot_skip_reasons"] = skip_path
+        return paths
+
     plot_paths = {
         "hgb_learning_rate_vs_max_iter": plots_dir / "hgb_learning_rate_vs_max_iter.png",
         "hgb_max_leaf_nodes_vs_cv_r2": plots_dir / "hgb_max_leaf_nodes_vs_cv_r2.png",
@@ -438,16 +507,65 @@ def _write_hgb_diagnostics(run_dir: Path, cv_results: pd.DataFrame) -> dict[str,
         "hgb_l2_regularization_vs_cv_r2": plots_dir / "hgb_l2_regularization_vs_cv_r2.png",
         "hgb_train_vs_cv_r2_top_configs": plots_dir / "hgb_train_vs_cv_r2_top_configs.png",
     }
-    _plot_hgb_learning_rate_vs_max_iter(summary, plot_paths["hgb_learning_rate_vs_max_iter"])
-    _plot_hgb_param_vs_cv_r2(summary, "max_leaf_nodes", plot_paths["hgb_max_leaf_nodes_vs_cv_r2"])
-    _plot_hgb_param_vs_cv_r2(
-        summary, "min_samples_leaf", plot_paths["hgb_min_samples_leaf_vs_cv_r2"]
+
+    # learning_rate vs max_iter needs at least 3 observed combinations.
+    lr_iter_frame = _numeric_plot_frame(summary, ["learning_rate", "max_iter", "mean_test_score"])
+    lr_iter_points = (
+        lr_iter_frame.groupby(["learning_rate", "max_iter"], as_index=False)["mean_test_score"]
+        .mean()
+        if not lr_iter_frame.empty
+        else lr_iter_frame
     )
-    _plot_hgb_param_vs_cv_r2(
-        summary, "l2_regularization", plot_paths["hgb_l2_regularization_vs_cv_r2"]
-    )
-    _plot_hgb_train_vs_cv_top_configs(summary, plot_paths["hgb_train_vs_cv_r2_top_configs"])
+    if len(lr_iter_points) >= MIN_INFORMATIVE_PLOT_POINTS:
+        _plot_hgb_learning_rate_vs_max_iter(
+            summary,
+            plot_paths["hgb_learning_rate_vs_max_iter"],
+        )
+    else:
+        skipped["hgb_learning_rate_vs_max_iter"] = (
+            "Skipped because fewer than "
+            f"{MIN_INFORMATIVE_PLOT_POINTS} learning_rate/max_iter combinations are available."
+        )
+
+    for param, key in [
+        ("max_leaf_nodes", "hgb_max_leaf_nodes_vs_cv_r2"),
+        ("min_samples_leaf", "hgb_min_samples_leaf_vs_cv_r2"),
+        ("l2_regularization", "hgb_l2_regularization_vs_cv_r2"),
+    ]:
+        plot_frame = _numeric_plot_frame(summary, [param, "mean_test_score"])
+        grouped = (
+            plot_frame.groupby(param, as_index=False)["mean_test_score"].mean()
+            if not plot_frame.empty
+            else plot_frame
+        )
+        if len(grouped) >= MIN_INFORMATIVE_PLOT_POINTS and grouped[param].nunique(dropna=True) >= 2:
+            _plot_hgb_param_vs_cv_r2(summary, param, plot_paths[key])
+        else:
+            skipped[key] = (
+                f"Skipped because {param} has fewer than "
+                f"{MIN_INFORMATIVE_PLOT_POINTS} plotted points."
+            )
+
+    if _has_informative_points(summary):
+        _plot_hgb_train_vs_cv_top_configs(
+            summary,
+            plot_paths["hgb_train_vs_cv_r2_top_configs"],
+        )
+    else:
+        skipped["hgb_train_vs_cv_r2_top_configs"] = (
+            "Skipped because fewer than "
+            f"{MIN_INFORMATIVE_PLOT_POINTS} ranked configurations are available."
+        )
+
     paths.update({key: path for key, path in plot_paths.items() if path.exists()})
+
+    skip_path = _write_plot_skip_reasons(
+        diagnostics_dir / "hgb_plot_skip_reasons.json",
+        skipped,
+    )
+    if skip_path is not None:
+        paths["hgb_plot_skip_reasons"] = skip_path
+
     return paths
 
 

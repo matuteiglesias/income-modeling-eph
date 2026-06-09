@@ -27,7 +27,7 @@ cv:
 
 diagnostics:
   enabled: true
-  profile: sweep
+  profile: hgb_capacity_sweep
   standard:
     residual_summary: true
     error_by_income_decile: true
