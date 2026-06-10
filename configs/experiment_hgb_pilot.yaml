@@ -48,7 +48,7 @@ diagnostics:
 
 models:
   ridge:
-    enabled: true
+    enabled: false
     grid:
       reg__alpha: [2]
 

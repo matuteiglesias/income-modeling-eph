@@ -123,6 +123,7 @@ def make_model_pipeline(
                         scale_numeric=True,
                         drop_first_categorical_columns=drop_first_categorical_columns,
                     ),
+                    ("design_scaler", StandardScaler()),
                 ),
                 ("reg", LinearRegression()),
             ]
@@ -137,6 +138,7 @@ def make_model_pipeline(
                         scale_numeric=True,
                         drop_first_categorical_columns=drop_first_categorical_columns,
                     ),
+                    ("design_scaler", StandardScaler()),
                 ),
                 ("reg", Ridge()),
             ]
@@ -151,6 +153,7 @@ def make_model_pipeline(
                         scale_numeric=True,
                         drop_first_categorical_columns=drop_first_categorical_columns,
                     ),
+                    ("design_scaler", StandardScaler()),
                 ),
                 ("reg", Lasso()),
             ]

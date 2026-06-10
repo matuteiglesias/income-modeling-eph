@@ -48,7 +48,7 @@ models:
       reg__fit_intercept: [true]
 
   ridge:
-    enabled: true
+    enabled: false
     grid:
       reg__alpha: [2, 5]
       reg__fit_intercept: [true]
