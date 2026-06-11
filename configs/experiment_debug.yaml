@@ -26,7 +26,7 @@ split:
   random_state: 42
 
 cv:
-  folds: 2
+  folds: 3
   scoring: r2
 
 diagnostics:
