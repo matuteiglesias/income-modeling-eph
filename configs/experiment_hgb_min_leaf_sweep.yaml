@@ -4,10 +4,16 @@ experiment:
 
 runtime:
   mode: sweep
-  sample_n: 100000
+  sample_n: 200000
   allow_full_run: false
   enabled_models:
     - hist_gradient_boosting
+
+feature_view:
+  name: clean_geo
+  drop_columns:
+    - AGLO_rk
+    - Reg_rk
 
 data:
   processed_dataset: data/processed/modeling_dataset.parquet
@@ -63,8 +69,8 @@ models:
     grid:
       reg__learning_rate: [0.05]
       reg__max_iter: [200]
-      reg__max_leaf_nodes: [31]
-      reg__min_samples_leaf: [20, 30, 50, 75, 100, 150, 200, 300]
+      reg__max_leaf_nodes: [31, 63]
+      reg__min_samples_leaf: [10, 20, 30, 50, 75, 100, 150, 200, 300, 500]
       reg__l2_regularization: [0.0]
       reg__early_stopping: [false]
   mlp:

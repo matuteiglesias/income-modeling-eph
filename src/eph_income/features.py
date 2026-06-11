@@ -79,7 +79,9 @@ DECLARED_CATEGORICAL_COLUMNS = (
     "CONDACT",
     "PP07G_59",
     "P02",
-)
+    "sanitacion_nivel",
+    "Max_Nivel_Educativo",
+    )
 
 
 @dataclass

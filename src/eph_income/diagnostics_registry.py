@@ -25,6 +25,10 @@ DIAGNOSTICS_PROFILES = {
     "regularization_interpretation",
     "geo_leakage_probe",
     "linear_fe_interpretation",
+    "linear_feature_family_study",
+    "ols_feature_family_study",
+    "ols_fe_interpretation",
+    "ols_equation_interpretation",
 }
 COEFFICIENT_MODEL_KEYS = {"linear_regression", "ridge", "lasso"}
 REGULARIZATION_MODEL_KEYS = {"ridge", "lasso"}
@@ -41,6 +45,8 @@ STANDARD_DEFAULTS: dict[str, bool] = {
     "residual_distribution": True,
     "mae_by_income_decile": True,
     "mean_residual_by_income_decile": True,
+    "group_residual_summary": False,
+    "group_residual_variance_decomposition": False,
 }
 
 MINIMAL_STANDARD_DEFAULTS: dict[str, bool] = {
@@ -70,11 +76,50 @@ PROFILE_STANDARD_DEFAULTS: dict[str, dict[str, bool]] = {
         "residual_summary": True,
         "error_by_income_decile": True,
         "prediction_distribution_summary": True,
+        "group_residual_summary": True,
+        "group_residual_variance_decomposition": True,
     },
     "linear_fe_interpretation": {
         **{key: False for key in STANDARD_DEFAULTS},
         "residual_summary": True,
         "prediction_distribution_summary": True,
+        "group_residual_summary": True,
+        "group_residual_variance_decomposition": True,
+    },
+    # OLS feature-block accumulation runs: keep backend diagnostics light.
+    # Cross-run comparisons are handled by notebooks such as 11_ols_feature_blocks.ipynb.
+    "linear_feature_family_study": {
+        **{key: False for key in STANDARD_DEFAULTS},
+        "residual_summary": True,
+        "error_by_income_decile": True,
+        "prediction_distribution_summary": True,
+        "metric_gaps": True,
+    },
+    # Preferred future spelling. Kept separate from the legacy linear_* name so old YAMLs
+    # and new OLS YAMLs can coexist during the migration.
+    "ols_feature_family_study": {
+        **{key: False for key in STANDARD_DEFAULTS},
+        "residual_summary": True,
+        "error_by_income_decile": True,
+        "prediction_distribution_summary": True,
+        "metric_gaps": True,
+    },
+    "ols_fe_interpretation": {
+        **{key: False for key in STANDARD_DEFAULTS},
+        "residual_summary": True,
+        "prediction_distribution_summary": True,
+        "error_by_income_decile": True,
+        "metric_gaps": True,
+        "group_residual_summary": True,
+        "group_residual_variance_decomposition": True,
+    },
+    # Equation/coefficients notebooks should be table-first: they need the design matrix,
+    # coefficient tables, reference levels, and percent interpretation, not backend plots.
+    "ols_equation_interpretation": {
+        **{key: False for key in STANDARD_DEFAULTS},
+        "residual_summary": True,
+        "prediction_distribution_summary": True,
+        "metric_gaps": True,
     },
 }
 
@@ -103,16 +148,112 @@ DEFAULT_DISTRIBUTION: dict[str, bool] = {
     "decile_tail_summary": False,
 }
 
+DEFAULT_COEFFICIENTS: dict[str, bool | str] = {
+    "enabled": "auto",
+    # Legacy/simple export.
+    "best_coefficients": True,
+    "fixed_effect_coefficients": True,
+    # New thesis-facing exports written by experiment_artifacts.py after fit.
+    "transformed_coefficient_table": True,
+    "design_matrix_features": True,
+    "reference_levels": True,
+    "percent_interpretation": True,
+    "coefficient_family_summary": True,
+    "top_by_family": True,
+    # Optional future diagnostics.
+    "standardized_coefficients": False,
+    "coefficient_stability": False,
+}
+
+DEFAULT_REGULARIZATION: dict[str, bool | str] = {
+    "enabled": "auto",
+    "alpha_curves": True,
+    "coefficient_paths": True,
+    "coefficient_norms": False,
+    "sparsity_summary": False,
+}
+
+DEFAULT_HGB: dict[str, bool | str] = {
+    "enabled": "auto",
+    "basic_cv_summaries": True,
+    "top_configs": True,
+    "overfit_gap_by_config": True,
+}
+
+DEFAULT_SWEEPS: dict[str, Any] = {
+    "enabled": "auto",
+    "sweep_type": None,
+    "primary_param": None,
+    "group_param": None,
+}
+
 DEFAULT_COMPARISON: dict[str, Any] = {
     "family": None,
     "variant": None,
     "anchor_variant": None,
 }
 
-DEFAULT_FIXED_EFFECTS: dict[str, bool] = {
+DEFAULT_FIXED_EFFECTS: dict[str, bool | str] = {
     "enabled": "auto",
     "coefficient_table": True,
     "reference_levels": True,
+}
+
+DEFAULT_GROUP_RESIDUAL_GROUPINGS: list[dict[str, Any]] = [
+    {"name": "year", "columns": ["ANO4"]},
+    {"name": "quarter", "columns": ["TRIMESTRE"]},
+    {"name": "year_quarter", "columns": ["ANO4", "TRIMESTRE"]},
+    {"name": "region", "columns": ["Region"]},
+    {"name": "aglo", "columns": ["AGLOMERADO"]},
+]
+
+DEFAULT_GROUP_RESIDUALS: dict[str, Any] = {
+    "enabled": False,
+    "summary": True,
+    "variance_decomposition": True,
+    "groupings": [],
+}
+
+DEFAULT_CONTEXT_COLUMNS: list[str] = []
+COMMON_FE_CONTEXT_COLUMNS: list[str] = ["ANO4", "TRIMESTRE", "Region", "AGLOMERADO"]
+
+PROFILE_COEFFICIENT_DEFAULTS: dict[str, dict[str, bool | str]] = {
+    "ols_equation_interpretation": {
+        **DEFAULT_COEFFICIENTS,
+        "enabled": "auto",
+        "best_coefficients": True,
+        "fixed_effect_coefficients": True,
+        "transformed_coefficient_table": True,
+        "design_matrix_features": True,
+        "reference_levels": True,
+        "percent_interpretation": True,
+        "coefficient_family_summary": True,
+        "top_by_family": True,
+    },
+}
+
+PROFILE_GROUP_RESIDUAL_DEFAULTS: dict[str, dict[str, Any]] = {
+    "geo_leakage_probe": {
+        **DEFAULT_GROUP_RESIDUALS,
+        "enabled": True,
+        "groupings": DEFAULT_GROUP_RESIDUAL_GROUPINGS,
+    },
+    "linear_fe_interpretation": {
+        **DEFAULT_GROUP_RESIDUALS,
+        "enabled": True,
+        "groupings": DEFAULT_GROUP_RESIDUAL_GROUPINGS,
+    },
+    "ols_fe_interpretation": {
+        **DEFAULT_GROUP_RESIDUALS,
+        "enabled": True,
+        "groupings": DEFAULT_GROUP_RESIDUAL_GROUPINGS,
+    },
+}
+
+PROFILE_CONTEXT_COLUMNS: dict[str, list[str]] = {
+    "geo_leakage_probe": COMMON_FE_CONTEXT_COLUMNS,
+    "linear_fe_interpretation": COMMON_FE_CONTEXT_COLUMNS,
+    "ols_fe_interpretation": COMMON_FE_CONTEXT_COLUMNS,
 }
 
 DEFAULT_NORMALIZED_CONFIG: dict[str, Any] = {
@@ -122,32 +263,14 @@ DEFAULT_NORMALIZED_CONFIG: dict[str, Any] = {
     "standard": STANDARD_DEFAULTS,
     "plots": DEFAULT_PLOTS,
     "distribution": DEFAULT_DISTRIBUTION,
-    "coefficients": {
-        "enabled": "auto",
-        "best_coefficients": True,
-        "fixed_effect_coefficients": True,
-    },
-    "regularization": {
-        "enabled": "auto",
-        "alpha_curves": True,
-        "coefficient_paths": True,
-        "coefficient_norms": False,
-        "sparsity_summary": False,
-    },
-    "hgb": {
-        "enabled": "auto",
-        "basic_cv_summaries": True,
-        "top_configs": True,
-        "overfit_gap_by_config": True,
-    },
-    "sweeps": {
-        "enabled": "auto",
-        "sweep_type": None,
-        "primary_param": None,
-        "group_param": None,
-    },
+    "coefficients": DEFAULT_COEFFICIENTS,
+    "regularization": DEFAULT_REGULARIZATION,
+    "hgb": DEFAULT_HGB,
+    "sweeps": DEFAULT_SWEEPS,
     "comparison": DEFAULT_COMPARISON,
     "fixed_effects": DEFAULT_FIXED_EFFECTS,
+    "group_residuals": DEFAULT_GROUP_RESIDUALS,
+    "context_columns": DEFAULT_CONTEXT_COLUMNS,
     "notes": [],
     "compatibility": {
         "used_legacy_regularization_sweep_key": False,
@@ -164,9 +287,7 @@ def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _merge_section(
-    normalized: dict[str, Any], raw: Mapping[str, Any], section: str
-) -> None:
+def _merge_section(normalized: dict[str, Any], raw: Mapping[str, Any], section: str) -> None:
     raw_section = raw.get(section)
     if not isinstance(raw_section, Mapping):
         return
@@ -179,6 +300,40 @@ def _normalize_enabled(value: Any) -> bool | str:
     if isinstance(value, str) and value == "auto":
         return "auto"
     return bool(value)
+
+
+def _normalize_grouping_spec(value: Any, index: int) -> dict[str, Any]:
+    if isinstance(value, str):
+        return {"name": value, "columns": [value]}
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray, Mapping)):
+        columns = [str(column) for column in value]
+        if not columns:
+            raise ValueError("diagnostics.group_residuals.groupings entries cannot be empty.")
+        return {"name": "_".join(columns), "columns": columns}
+    if isinstance(value, Mapping):
+        name = str(value.get("name") or f"grouping_{index + 1}")
+        columns_raw = value.get("columns")
+        if isinstance(columns_raw, str):
+            columns = [columns_raw]
+        elif isinstance(columns_raw, Sequence) and not isinstance(columns_raw, (bytes, bytearray)):
+            columns = [str(column) for column in columns_raw]
+        else:
+            raise TypeError("Each group_residuals grouping must declare a string/list `columns` field.")
+        if not columns:
+            raise ValueError("diagnostics.group_residuals.groupings entries cannot have empty columns.")
+        result = dict(value)
+        result["name"] = name
+        result["columns"] = columns
+        return result
+    raise TypeError("group_residuals.groupings entries must be strings, lists, or mappings.")
+
+
+def _normalize_groupings(groupings: Any) -> list[dict[str, Any]]:
+    if groupings is None:
+        return []
+    if not isinstance(groupings, Sequence) or isinstance(groupings, (str, bytes, bytearray)):
+        raise TypeError("diagnostics.group_residuals.groupings must be a list.")
+    return [_normalize_grouping_spec(item, index) for index, item in enumerate(groupings)]
 
 
 def normalize_diagnostics_config(experiment_config: Mapping[str, Any]) -> dict[str, Any]:
@@ -204,12 +359,19 @@ def normalize_diagnostics_config(experiment_config: Mapping[str, Any]) -> dict[s
     elif raw.get("regularization_sweep") is True or "sweep_type" in raw:
         normalized["profile"] = "sweep"
 
-    if normalized["profile"] == "none":
+    profile = normalized["profile"]
+    if profile == "none":
         normalized["enabled"] = False
-    if normalized["profile"] == "minimal":
+    if profile == "minimal":
         normalized["standard"] = dict(MINIMAL_STANDARD_DEFAULTS)
-    if normalized["profile"] in PROFILE_STANDARD_DEFAULTS:
-        normalized["standard"] = dict(PROFILE_STANDARD_DEFAULTS[normalized["profile"]])
+    if profile in PROFILE_STANDARD_DEFAULTS:
+        normalized["standard"] = deepcopy(PROFILE_STANDARD_DEFAULTS[profile])
+    if profile in PROFILE_COEFFICIENT_DEFAULTS:
+        normalized["coefficients"] = deepcopy(PROFILE_COEFFICIENT_DEFAULTS[profile])
+    if profile in PROFILE_GROUP_RESIDUAL_DEFAULTS:
+        normalized["group_residuals"] = deepcopy(PROFILE_GROUP_RESIDUAL_DEFAULTS[profile])
+    if profile in PROFILE_CONTEXT_COLUMNS:
+        normalized["context_columns"] = list(PROFILE_CONTEXT_COLUMNS[profile])
 
     for section in [
         "standard",
@@ -221,8 +383,12 @@ def normalize_diagnostics_config(experiment_config: Mapping[str, Any]) -> dict[s
         "sweeps",
         "comparison",
         "fixed_effects",
+        "group_residuals",
     ]:
         _merge_section(normalized, raw, section)
+
+    if isinstance(raw.get("context_columns"), list):
+        normalized["context_columns"] = [str(column) for column in raw["context_columns"]]
     if isinstance(raw.get("notes"), list):
         normalized["notes"] = list(raw["notes"])
 
@@ -238,8 +404,12 @@ def normalize_diagnostics_config(experiment_config: Mapping[str, Any]) -> dict[s
         normalized["sweeps"]["group_param"] = raw.get("group_param")
         normalized["compatibility"]["used_legacy_sweep_type_key"] = True
 
-    for section in ["coefficients", "regularization", "hgb", "sweeps", "fixed_effects"]:
+    for section in ["coefficients", "regularization", "hgb", "sweeps", "fixed_effects", "group_residuals"]:
         normalized[section]["enabled"] = _normalize_enabled(normalized[section].get("enabled"))
+
+    normalized["group_residuals"]["groupings"] = _normalize_groupings(
+        normalized["group_residuals"].get("groupings", [])
+    )
 
     return normalized
 
@@ -334,6 +504,14 @@ def build_diagnostics_plan(
     fixed_effects_enabled = _resolve_auto(
         normalized["fixed_effects"]["enabled"], bool(fixed_effect_specs)
     )
+
+    groupings = list(normalized["group_residuals"].get("groupings", []))
+    group_residuals_enabled = _resolve_auto(
+        normalized["group_residuals"].get("enabled", False), bool(groupings)
+    )
+    if group_residuals_enabled and not groupings:
+        notes.append("Group residual diagnostics enabled but no groupings were configured.")
+
     standard_enabled = bool(normalized["enabled"] and normalized["profile"] != "none")
     plots_enabled = bool(normalized["plots"].get("enabled", True) and standard_enabled)
     standard_plan = {
@@ -364,6 +542,36 @@ def build_diagnostics_plan(
             ),
             "fixed_effect_coefficients": bool(
                 fixed_effect_coefficients_enabled and normalized["enabled"]
+            ),
+            "transformed_coefficient_table": bool(
+                coefficients_enabled
+                and normalized["enabled"]
+                and normalized["coefficients"].get("transformed_coefficient_table", True)
+            ),
+            "design_matrix_features": bool(
+                coefficients_enabled
+                and normalized["enabled"]
+                and normalized["coefficients"].get("design_matrix_features", True)
+            ),
+            "reference_levels": bool(
+                coefficients_enabled
+                and normalized["enabled"]
+                and normalized["coefficients"].get("reference_levels", True)
+            ),
+            "percent_interpretation": bool(
+                coefficients_enabled
+                and normalized["enabled"]
+                and normalized["coefficients"].get("percent_interpretation", True)
+            ),
+            "coefficient_family_summary": bool(
+                coefficients_enabled
+                and normalized["enabled"]
+                and normalized["coefficients"].get("coefficient_family_summary", True)
+            ),
+            "top_by_family": bool(
+                coefficients_enabled
+                and normalized["enabled"]
+                and normalized["coefficients"].get("top_by_family", True)
             ),
             "standardized_coefficients": bool(
                 coefficients_enabled
@@ -434,7 +642,22 @@ def build_diagnostics_plan(
                 and normalized["fixed_effects"].get("reference_levels", True)
             ),
         },
+        "group_residuals": {
+            "enabled": bool(group_residuals_enabled and normalized["enabled"]),
+            "summary": bool(
+                group_residuals_enabled
+                and normalized["enabled"]
+                and normalized["group_residuals"].get("summary", True)
+            ),
+            "variance_decomposition": bool(
+                group_residuals_enabled
+                and normalized["enabled"]
+                and normalized["group_residuals"].get("variance_decomposition", True)
+            ),
+            "groupings": groupings,
+        },
         "comparison": dict(normalized["comparison"]),
+        "context_columns": list(normalized.get("context_columns", [])),
     }
 
     return {

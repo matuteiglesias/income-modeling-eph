@@ -36,6 +36,8 @@ from eph_income.experiment_artifacts import (
     _write_diagnostics_from_predictions,
     _write_fixed_effect_coefficients,
     _write_predictions,
+    _transformed_coefficient_rows,
+    _write_transformed_coefficients,
     _write_training_frame_sample,
     _write_yaml_snapshot,
 )
@@ -43,6 +45,7 @@ from eph_income.experiment_frame import (
     _fixed_effect_drop_first_columns,
     apply_feature_view,
     apply_fixed_effects,
+    build_feature_type_spec,
     prepare_experiment_frame,
 )
 from eph_income.guards import (
@@ -118,6 +121,23 @@ def _heartbeat_interval_seconds(experiment_config: Mapping[str, Any]) -> float:
     if interval < 0:
         raise ValueError("runtime.heartbeat_interval_seconds must be non-negative.")
     return interval
+
+
+def _diagnostics_context_columns(experiment_config: Mapping[str, Any]) -> list[str]:
+    """Return row-level context columns to preserve in prediction artifacts."""
+
+    diagnostics = experiment_config.get("diagnostics", {})
+    artifacts = experiment_config.get("artifacts", {})
+    candidates = []
+    if isinstance(diagnostics, Mapping):
+        candidates = diagnostics.get("context_columns", [])
+    if not candidates and isinstance(artifacts, Mapping):
+        candidates = artifacts.get("prediction_context_columns", [])
+    if candidates is None:
+        return []
+    if not isinstance(candidates, list):
+        raise TypeError("diagnostics.context_columns must be a list when provided.")
+    return list(dict.fromkeys(str(column) for column in candidates))
 
 
 def _validate_feature_count_consistency(comparison: pd.DataFrame) -> None:
@@ -628,6 +648,16 @@ def run_experiment(
         write_guard_decisions(run_dir, run_id, guard_decisions)
         raise
     fixed_effect_drop_first_columns = _fixed_effect_drop_first_columns(fixed_effects_used)
+    feature_type_spec = build_feature_type_spec(feature_contract, feature_columns, fixed_effects_used)
+    feature_metadata = list(feature_type_spec.get("feature_metadata", []))
+    prediction_context_columns = _diagnostics_context_columns(experiment_config)
+
+    feature_metadata_path = run_dir / "artifacts" / "feature_metadata.json"
+    feature_metadata_path.write_text(
+        json.dumps(feature_metadata, indent=2, sort_keys=True, default=str),
+        encoding="utf-8",
+    )
+
     train = joined[joined["split"] == "train"]
     test = joined[joined["split"] == "test"]
     validation = joined[joined["split"] == "validation"]
@@ -693,12 +723,21 @@ def run_experiment(
     diagnostics_plan_path.write_text(
         json.dumps(diagnostics_plan_payload, indent=2, sort_keys=True), encoding="utf-8"
     )
+    resolved_diagnostics = diagnostics_plan.get("resolved", diagnostics_plan)
+    coefficients_plan = resolved_diagnostics.get("coefficients", {})
+    regularization_plan = resolved_diagnostics.get("regularization", {})
     write_coefficient_diagnostics = bool(
-        diagnostics_plan["resolved"]["regularization"].get("coefficient_paths", False)
+        coefficients_plan.get("best_coefficients", False)
+        or coefficients_plan.get("standardized_coefficients", False)
+        or coefficients_plan.get("fixed_effect_coefficients", False)
+    )
+    write_regularization_diagnostics = bool(
+        regularization_plan.get("coefficient_paths", False)
     )
 
     rows: list[dict[str, Any]] = []
     fixed_effect_coefficient_rows: list[dict[str, Any]] = []
+    transformed_coefficient_rows: list[dict[str, Any]] = []
     predictions_by_split: dict[str, list[pd.DataFrame]] = {"test": [], "validation": []}
 
     for model_key, model_config in enabled_model_configs(experiment_config).items():
@@ -721,6 +760,7 @@ def run_experiment(
             train[feature_columns],
             random_seed,
             drop_first_categorical_columns=fixed_effect_drop_first_columns,
+            feature_type_spec=feature_type_spec,
         )
         grid = model_config.get("grid", {})
 
@@ -782,6 +822,17 @@ def run_experiment(
         )
 
         if write_coefficient_diagnostics:
+            transformed_coefficient_rows.extend(
+                _transformed_coefficient_rows(
+                    run_id=run_id,
+                    experiment_id=experiment_config.get("experiment", {}).get("id"),
+                    model_name=model_name,
+                    estimator=search.best_estimator_,
+                    feature_metadata=feature_metadata,
+                )
+            )
+
+        if write_coefficient_diagnostics:
             coefficient_path = _write_best_coefficient_summary(
                 run_dir=run_dir,
                 model_name=model_name,
@@ -790,28 +841,29 @@ def run_experiment(
             )
             if coefficient_path is not None:
                 model_artifact_paths.append(coefficient_path)
-            path_summary = _regularization_path_summary(
-                model_key=model_key,
-                model_name=model_name,
-                run_id=run_id,
-                base_pipeline=pipeline,
-                cv_results=cv_results,
-                train=train,
-                feature_columns=feature_columns,
-                target=target,
-            )
-            if path_summary is not None:
-                path_summary_path = (
-                    run_dir / "diagnostics" / f"{model_name}_regularization_path_summary.csv"
+            if write_regularization_diagnostics:
+                path_summary = _regularization_path_summary(
+                    model_key=model_key,
+                    model_name=model_name,
+                    run_id=run_id,
+                    base_pipeline=pipeline,
+                    cv_results=cv_results,
+                    train=train,
+                    feature_columns=feature_columns,
+                    target=target,
                 )
-                path_summary.to_csv(
-                    path_summary_path,
-                    index=False,
-                )
-                model_artifact_paths.append(path_summary_path)
-                model_artifact_paths.extend(
-                    _write_regularization_plots(run_dir, model_name, path_summary).values()
-                )
+                if path_summary is not None:
+                    path_summary_path = (
+                        run_dir / "diagnostics" / f"{model_name}_regularization_path_summary.csv"
+                    )
+                    path_summary.to_csv(
+                        path_summary_path,
+                        index=False,
+                    )
+                    model_artifact_paths.append(path_summary_path)
+                    model_artifact_paths.extend(
+                        _write_regularization_plots(run_dir, model_name, path_summary).values()
+                    )
 
         best_index = int(search.best_index_)
         best_cv_score = float(search.cv_results_["mean_test_score"][best_index])
@@ -838,6 +890,7 @@ def run_experiment(
                     feature_columns=feature_columns,
                     target=target,
                     estimator=search.best_estimator_,
+                    context_columns=prediction_context_columns,
                 )
             )
         rows.append(
@@ -859,6 +912,9 @@ def run_experiment(
 
     fixed_effect_coefficients_path = _write_fixed_effect_coefficients(
         run_dir=run_dir, rows=fixed_effect_coefficient_rows
+    )
+    transformed_coefficient_paths = _write_transformed_coefficients(
+        run_dir=run_dir, rows=transformed_coefficient_rows
     )
 
     comparison = pd.DataFrame(rows)
@@ -888,6 +944,7 @@ def run_experiment(
         "feature_contract_used": str(run_dir / "feature_contract_used.yaml"),
         "dataset_card": str(run_dir / "dataset_card.json"),
         "feature_columns": str(run_dir / "feature_columns.json"),
+        "feature_metadata": str(feature_metadata_path),
         "model_comparison": str(run_model_comparison_path),
         "metrics_long": str(run_dir / "metrics" / "metrics_long.csv"),
         "test_predictions": str(prediction_paths["test"]),
@@ -918,6 +975,7 @@ def run_experiment(
     manifest_paths.update(hgb_sweep_markdown)
     if fixed_effect_coefficients_path is not None:
         manifest_paths["fixed_effect_coefficients"] = str(fixed_effect_coefficients_path)
+    manifest_paths.update({key: str(path) for key, path in transformed_coefficient_paths.items()})
     manifest_paths.update({key: str(path) for key, path in multicollinearity_artifact_paths.items()})
     manifest_paths.update({key: str(path) for key, path in training_frame_sample_paths.items()})
     if output_path is not None:
@@ -937,6 +995,8 @@ def run_experiment(
         "rows_used": int(len(joined)),
         "models": comparison["model"].tolist(),
         "feature_view": feature_view_metadata,
+        "feature_metadata": feature_metadata,
+        "prediction_context_columns": prediction_context_columns,
         "fixed_effects_used": fixed_effects_used,
         "paths": manifest_paths,
     }
@@ -951,6 +1011,8 @@ def run_experiment(
         "rows_used": int(len(joined)),
         "feature_count": int(len(feature_columns)),
         "feature_columns": feature_columns,
+        "feature_metadata": feature_metadata,
+        "feature_metadata_path": str(feature_metadata_path),
         "feature_view": feature_view_metadata,
         "fixed_effects_used": fixed_effects_used,
         "models": comparison["model"].tolist(),

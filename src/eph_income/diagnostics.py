@@ -279,6 +279,242 @@ def compute_metric_gaps(model_comparison: pd.DataFrame, run_id: str | None) -> p
     )
 
 
+
+def _safe_grouping_name(group_cols: Iterable[str], grouping_name: str | None = None) -> str:
+    """Return a stable grouping label for table exports."""
+
+    if grouping_name:
+        return str(grouping_name)
+    return "__".join(str(column) for column in group_cols)
+
+
+def _validate_group_columns(predictions: pd.DataFrame, group_cols: Iterable[str]) -> list[str]:
+    """Return missing grouping columns, without raising."""
+
+    return [str(column) for column in group_cols if str(column) not in predictions.columns]
+
+
+def compute_group_residual_summary(
+    predictions: pd.DataFrame,
+    group_cols: Iterable[str],
+    *,
+    grouping_name: str | None = None,
+) -> pd.DataFrame:
+    """Compute residual summaries by arbitrary group columns.
+
+    This is intentionally generic so notebooks can reuse one backend artifact for
+    temporal, geographic, demographic, or other residual diagnostics. The function
+    assumes predictions may already contain context columns such as ANO4,
+    TRIMESTRE, Region, or AGLOMERADO.
+    """
+
+    cols = [str(column) for column in group_cols]
+    missing = _validate_group_columns(predictions, cols)
+    if missing:
+        raise KeyError("Predictions are missing grouping columns: " + ", ".join(missing))
+    if predictions.empty:
+        return pd.DataFrame(
+            columns=[
+                "grouping",
+                "group_columns",
+                "run_id",
+                "model",
+                "split",
+                *cols,
+                "n",
+                "y_true_mean",
+                "y_pred_mean",
+                "residual_mean",
+                "residual_std",
+                "residual_median",
+                "residual_p05",
+                "residual_p95",
+                "mae",
+                "mse",
+                "rmse",
+                "y_true_std",
+                "y_pred_std",
+            ]
+        )
+
+    grouping = _safe_grouping_name(cols, grouping_name)
+    rows: list[dict[str, Any]] = []
+    keys = ["run_id", "model", "split", *cols]
+    for key_values, group in predictions.groupby(keys, dropna=False):
+        if not isinstance(key_values, tuple):
+            key_values = (key_values,)
+        key_map = dict(zip(keys, key_values, strict=True))
+        row: dict[str, Any] = {
+            "grouping": grouping,
+            "group_columns": json.dumps(cols, ensure_ascii=False),
+            **key_map,
+            "n": int(len(group)),
+            "y_true_mean": float(group["y_true"].mean()),
+            "y_pred_mean": float(group["y_pred"].mean()),
+            "residual_mean": float(group["residual"].mean()),
+            "residual_std": float(group["residual"].std()),
+            "residual_median": float(group["residual"].median()),
+            "residual_p05": _quantile(group["residual"], 0.05),
+            "residual_p95": _quantile(group["residual"], 0.95),
+            "mae": float(group["abs_error"].mean()),
+            "mse": float(group["squared_error"].mean()),
+            "rmse": _rmse(group["squared_error"]),
+            "y_true_std": float(group["y_true"].std()),
+            "y_pred_std": float(group["y_pred"].std()),
+        }
+        rows.append(row)
+    return pd.DataFrame(rows).sort_values(keys).reset_index(drop=True)
+
+
+def _weighted_variance(values: pd.Series, weights: pd.Series) -> float:
+    """Return the population weighted variance for numeric values."""
+
+    numeric_values = pd.to_numeric(values, errors="coerce")
+    numeric_weights = pd.to_numeric(weights, errors="coerce")
+    valid = numeric_values.notna() & numeric_weights.notna() & (numeric_weights > 0)
+    if not bool(valid.any()):
+        return float("nan")
+    x = numeric_values[valid].to_numpy(dtype=float)
+    w = numeric_weights[valid].to_numpy(dtype=float)
+    mean = float(np.average(x, weights=w))
+    return float(np.average((x - mean) ** 2, weights=w))
+
+
+def compute_group_residual_variance_decomposition(
+    predictions: pd.DataFrame,
+    group_cols: Iterable[str],
+    *,
+    grouping_name: str | None = None,
+) -> pd.DataFrame:
+    """Summarize how much variance is associated with group mean residuals.
+
+    The main thesis-facing column is `share_var_y`, defined as the unweighted
+    variance of group mean residuals divided by the total variance of y_true in
+    the corresponding run/model/split. Weighted analogues are included so the
+    notebooks can choose whether to emphasize location-level dispersion or
+    row-weighted explanatory share.
+    """
+
+    cols = [str(column) for column in group_cols]
+    group_summary = compute_group_residual_summary(
+        predictions, cols, grouping_name=grouping_name
+    )
+    grouping = _safe_grouping_name(cols, grouping_name)
+    if group_summary.empty:
+        return pd.DataFrame(
+            columns=[
+                "grouping",
+                "group_columns",
+                "run_id",
+                "model",
+                "split",
+                "n_groups",
+                "n_rows",
+                "sd_group_mean_residual",
+                "var_group_mean_residual",
+                "share_var_y",
+                "weighted_var_group_mean_residual",
+                "weighted_share_var_y",
+                "max_abs_group_mean_residual",
+                "range_group_mean_residual",
+                "y_true_var",
+            ]
+        )
+
+    rows: list[dict[str, Any]] = []
+    for (run_id, model, split), summary in group_summary.groupby(["run_id", "model", "split"], dropna=False):
+        pred_sub = predictions[
+            (predictions["run_id"] == run_id)
+            & (predictions["model"] == model)
+            & (predictions["split"] == split)
+        ]
+        y_true_var = float(pred_sub["y_true"].var(ddof=1)) if len(pred_sub) > 1 else float("nan")
+        residual_means = pd.to_numeric(summary["residual_mean"], errors="coerce")
+        var_unweighted = float(residual_means.var(ddof=1)) if residual_means.notna().sum() > 1 else 0.0
+        sd_unweighted = float(np.sqrt(var_unweighted)) if pd.notna(var_unweighted) else float("nan")
+        weighted_var = _weighted_variance(residual_means, summary["n"])
+        rows.append(
+            {
+                "grouping": grouping,
+                "group_columns": json.dumps(cols, ensure_ascii=False),
+                "run_id": run_id,
+                "model": model,
+                "split": split,
+                "n_groups": int(len(summary)),
+                "n_rows": int(summary["n"].sum()),
+                "sd_group_mean_residual": sd_unweighted,
+                "var_group_mean_residual": var_unweighted,
+                "share_var_y": var_unweighted / y_true_var if y_true_var else float("nan"),
+                "weighted_var_group_mean_residual": weighted_var,
+                "weighted_share_var_y": weighted_var / y_true_var if y_true_var else float("nan"),
+                "max_abs_group_mean_residual": float(residual_means.abs().max()),
+                "range_group_mean_residual": float(residual_means.max() - residual_means.min()),
+                "y_true_var": y_true_var,
+            }
+        )
+    return pd.DataFrame(rows).sort_values(["grouping", "run_id", "model", "split"]).reset_index(drop=True)
+
+
+def _normalize_grouping_specs(groupings: Any) -> list[dict[str, Any]]:
+    """Normalize group residual specifications from diagnostics config/plan."""
+
+    if groupings is None:
+        return []
+    if not isinstance(groupings, list):
+        raise TypeError("group_residuals.groupings must be a list.")
+    normalized: list[dict[str, Any]] = []
+    for index, item in enumerate(groupings):
+        if isinstance(item, str):
+            normalized.append({"name": item, "columns": [item]})
+            continue
+        if isinstance(item, list):
+            columns = [str(column) for column in item]
+            normalized.append({"name": "__".join(columns), "columns": columns})
+            continue
+        if isinstance(item, Mapping):
+            columns_raw = item.get("columns")
+            if isinstance(columns_raw, str):
+                columns = [columns_raw]
+            elif isinstance(columns_raw, list):
+                columns = [str(column) for column in columns_raw]
+            else:
+                raise TypeError("Each group residual spec must declare `columns` as str/list.")
+            normalized.append({"name": str(item.get("name") or f"grouping_{index + 1}"), "columns": columns})
+            continue
+        raise TypeError("Group residual specs must be strings, lists, or mappings.")
+    return normalized
+
+
+def _group_residual_plan_from_config(
+    *,
+    config_used: Mapping[str, Any],
+    resolved_plan: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Resolve group residual settings from diagnostics_plan or config_used."""
+
+    plan = resolved_plan.get("group_residuals") if isinstance(resolved_plan, Mapping) else None
+    if isinstance(plan, Mapping):
+        return {
+            "enabled": bool(plan.get("enabled", False)),
+            "summary": bool(plan.get("summary", True)),
+            "variance_decomposition": bool(plan.get("variance_decomposition", True)),
+            "groupings": _normalize_grouping_specs(plan.get("groupings", [])),
+        }
+
+    try:
+        normalized = normalize_diagnostics_config(config_used)
+    except (TypeError, ValueError):
+        return {"enabled": False, "summary": True, "variance_decomposition": True, "groupings": []}
+    group_config = normalized.get("group_residuals", {})
+    if not isinstance(group_config, Mapping):
+        return {"enabled": False, "summary": True, "variance_decomposition": True, "groupings": []}
+    return {
+        "enabled": bool(group_config.get("enabled", False) is True),
+        "summary": bool(group_config.get("summary", True)),
+        "variance_decomposition": bool(group_config.get("variance_decomposition", True)),
+        "groupings": _normalize_grouping_specs(group_config.get("groupings", [])),
+    }
+
 def _selected_split(predictions: pd.DataFrame, split: str) -> pd.DataFrame:
     selected = predictions[predictions["split"] == split]
     if selected.empty:
@@ -968,6 +1204,9 @@ def build_diagnostics(
     min_decile_points: int = 3,
 ) -> dict[str, Any]:
     """Build diagnostic tables and plots from archived run artifacts."""
+
+    # These thresholds are retained for API compatibility and future plot gating.
+    # Current table diagnostics are deterministic and do not require sampling.
     _ = (max_scatter_points, min_distribution_rows, min_decile_points)
 
     run_path = _as_path(run_dir)
@@ -1013,6 +1252,58 @@ def build_diagnostics(
     resolved_plan = diagnostics_plan.get("resolved", {}) if diagnostics_plan else {}
     distribution_plan = resolved_plan.get("distribution", {}) if isinstance(resolved_plan, Mapping) else {}
     plots_plan = resolved_plan.get("plots", {}) if isinstance(resolved_plan, Mapping) else {}
+
+    group_plan = _group_residual_plan_from_config(
+        config_used=config_used,
+        resolved_plan=resolved_plan if isinstance(resolved_plan, Mapping) else {},
+    )
+    if group_plan["enabled"]:
+        group_summary_frames: list[pd.DataFrame] = []
+        group_variance_frames: list[pd.DataFrame] = []
+        for grouping in group_plan["groupings"]:
+            grouping_name = str(grouping["name"])
+            group_cols = [str(column) for column in grouping["columns"]]
+            missing_group_columns = _validate_group_columns(predictions, group_cols)
+            if missing_group_columns:
+                notes.append(
+                    f"Skipped group residual diagnostics for {grouping_name}: "
+                    "predictions are missing columns " + ", ".join(missing_group_columns)
+                )
+                continue
+            if group_plan.get("summary", True):
+                group_summary_frames.append(
+                    compute_group_residual_summary(
+                        predictions, group_cols, grouping_name=grouping_name
+                    )
+                )
+            if group_plan.get("variance_decomposition", True):
+                group_variance_frames.append(
+                    compute_group_residual_variance_decomposition(
+                        predictions, group_cols, grouping_name=grouping_name
+                    )
+                )
+        if group_summary_frames:
+            outputs["group_residual_summary"] = diagnostics_dir / "group_residual_summary.csv"
+            pd.concat(group_summary_frames, ignore_index=True).to_csv(
+                outputs["group_residual_summary"], index=False
+            )
+        elif group_plan.get("summary", True):
+            notes.append("Skipped group_residual_summary.csv: no configured grouping could be computed.")
+        if group_variance_frames:
+            outputs["group_residual_variance_decomposition"] = (
+                diagnostics_dir / "group_residual_variance_decomposition.csv"
+            )
+            pd.concat(group_variance_frames, ignore_index=True).to_csv(
+                outputs["group_residual_variance_decomposition"], index=False
+            )
+        elif group_plan.get("variance_decomposition", True):
+            notes.append(
+                "Skipped group_residual_variance_decomposition.csv: "
+                "no configured grouping could be computed."
+            )
+    elif isinstance(resolved_plan, Mapping) and resolved_plan.get("group_residuals", {}).get("enabled"):
+        notes.append("Skipped group residual diagnostics: no groupings were configured.")
+
     if isinstance(plots_plan, Mapping) and plots_plan.get("distribution_compression_by_model"):
         notes.append(
             "Skipped distribution_compression_by_model.png: compression plot is planned "

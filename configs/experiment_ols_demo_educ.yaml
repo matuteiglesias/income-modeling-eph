@@ -1,0 +1,128 @@
+experiment:
+  id: ols_demo_educ
+  kind: ols_feature_family_study
+  random_seed: 42
+runtime:
+  mode: sweep
+  sample_n: 200000
+  enabled_models:
+  - linear_regression
+data:
+  processed_dataset: data/processed/modeling_dataset.parquet
+  split_assignments: data/processed/split_assignments.csv
+split:
+  train_size: 0.7
+  test_size: 0.2
+  validation_size: 0.1
+  strategy: random_individual
+  random_state: 42
+cv:
+  folds: 3
+  scoring: r2
+  return_train_score: true
+artifacts:
+  training_frame_sample_n: 10
+  prediction_context_columns:
+  - ANO4
+  - TRIMESTRE
+  - Region
+  - AGLOMERADO
+  - P02
+  - P03
+  - P09
+  - P10
+  - Max_Nivel_Educativo
+  - CAT_INAC
+  - CAT_OCUP
+  - CONDACT
+  - PP07G_59
+diagnostics:
+  enabled: true
+  profile: ols_feature_family_study
+  context_columns:
+  - ANO4
+  - TRIMESTRE
+  - Region
+  - AGLOMERADO
+  - P02
+  - P03
+  - P09
+  - P10
+  - Max_Nivel_Educativo
+  - CAT_INAC
+  - CAT_OCUP
+  - CONDACT
+  - PP07G_59
+  standard:
+    residual_summary: true
+    prediction_distribution_summary: true
+    error_by_income_decile: true
+    metric_gaps: true
+  coefficients:
+    enabled: true
+    best_coefficients: true
+    fixed_effect_coefficients: false
+    standardized_coefficients: true
+    coefficient_stability: false
+    transformed_coefficient_table: true
+    design_matrix_features: true
+    reference_levels: true
+    percent_interpretation: true
+    coefficient_family_summary: true
+    top_by_family: true
+  plots:
+    enabled: false
+    fixed_effect_coefficients: false
+  group_residuals:
+    enabled: true
+    summary: true
+    variance_decomposition: true
+    groupings:
+    - name: year
+      columns:
+      - ANO4
+    - name: quarter
+      columns:
+      - TRIMESTRE
+    - name: year_quarter
+      columns:
+      - ANO4
+      - TRIMESTRE
+    - name: region
+      columns:
+      - Region
+    - name: aglo
+      columns:
+      - AGLOMERADO
+models:
+  linear_regression:
+    enabled: true
+    grid:
+      reg__fit_intercept:
+      - true
+  ridge:
+    enabled: false
+    grid: {}
+  lasso:
+    enabled: false
+    grid: {}
+  hist_gradient_boosting:
+    enabled: false
+    grid: {}
+  mlp:
+    enabled: false
+    grid: {}
+observability:
+  heartbeat_seconds: 10
+  sklearn_verbose: 2
+feature_view:
+  name: ols_demo_educ
+  include_blocks:
+  - demographic
+  - education
+model_design:
+  fixed_effects: []
+outputs:
+  model_comparison: reports/tables/model_comparison_ols_demo_educ.csv
+  experiment_card: reports/experiment_cards/ols_demo_educ.json
+  runs_dir: reports/runs

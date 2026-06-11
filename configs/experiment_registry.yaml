@@ -1,4 +1,135 @@
 experiments:
+- experiment_id: ols_demo
+  file: configs/experiment_ols_demo.yaml
+  family: ols_feature_family_progression
+  role: minimal_demographic_baseline
+  priority: required
+  diagnostics_profile: ols_feature_family_study
+  thesis_section:
+  - ols_feature_blocks
+  benchmark_policy: not_final_benchmark
+- experiment_id: ols_demo_educ
+  file: configs/experiment_ols_demo_educ.yaml
+  family: ols_feature_family_progression
+  role: education_increment
+  priority: required
+  diagnostics_profile: ols_feature_family_study
+  thesis_section:
+  - ols_feature_blocks
+  benchmark_policy: not_final_benchmark
+- experiment_id: ols_demo_educ_labor
+  file: configs/experiment_ols_demo_educ_labor.yaml
+  family: ols_feature_family_progression
+  role: labor_increment
+  priority: required
+  diagnostics_profile: ols_feature_family_study
+  thesis_section:
+  - ols_feature_blocks
+  benchmark_policy: not_final_benchmark
+- experiment_id: ols_core
+  file: configs/experiment_ols_core.yaml
+  family: ols_core
+  role: clean_core_ols_benchmark
+  priority: required
+  diagnostics_profile: ols_equation_interpretation
+  thesis_section:
+  - ols_core_equation
+  - model_family_comparison
+  benchmark_policy: main_clean_ols_baseline_no_pyramid_no_fe
+  required_artifacts:
+  - metrics/model_comparison.csv
+  - diagnostics/coefficients_transformed_all.csv
+  - diagnostics/design_matrix_features.csv
+  - diagnostics/coefficient_family_summary.csv
+  - diagnostics/onehot_reference_levels.csv
+- experiment_id: ols_core_with_pyramid
+  file: configs/experiment_ols_core_with_pyramid.yaml
+  family: ols_pyramid_sensitivity
+  role: household_composition_sensitivity
+  priority: recommended
+  diagnostics_profile: ols_feature_family_study
+  thesis_section:
+  - ols_feature_blocks
+  benchmark_policy: sensitivity_only
+- experiment_id: ols_core_year_fe
+  file: configs/experiment_ols_core_year_fe.yaml
+  family: ols_temporal_fe
+  role: year_fe_diagnostic
+  priority: required
+  diagnostics_profile: ols_fe_interpretation
+  thesis_section:
+  - ols_temporal_effects
+- experiment_id: ols_core_quarter_fe
+  file: configs/experiment_ols_core_quarter_fe.yaml
+  family: ols_temporal_fe
+  role: quarter_fe_diagnostic
+  priority: required
+  diagnostics_profile: ols_fe_interpretation
+  thesis_section:
+  - ols_temporal_effects
+- experiment_id: ols_core_year_plus_quarter_fe
+  file: configs/experiment_ols_core_year_plus_quarter_fe.yaml
+  family: ols_temporal_fe
+  role: additive_year_quarter_fe_diagnostic
+  priority: required
+  diagnostics_profile: ols_fe_interpretation
+  thesis_section:
+  - ols_temporal_effects
+- experiment_id: ols_core_region_fe
+  file: configs/experiment_ols_core_region_fe.yaml
+  family: ols_geographic_fe
+  role: region_fe_diagnostic
+  priority: required
+  diagnostics_profile: ols_fe_interpretation
+  thesis_section:
+  - ols_geographic_effects
+- experiment_id: ols_core_aglo_fe
+  file: configs/experiment_ols_core_aglo_fe.yaml
+  family: ols_geographic_fe
+  role: agglomerado_fe_diagnostic
+  priority: required
+  diagnostics_profile: ols_fe_interpretation
+  thesis_section:
+  - ols_geographic_effects
+- experiment_id: ols_core_aglo_plus_time_fe
+  file: configs/experiment_ols_core_aglo_plus_time_fe.yaml
+  family: ols_adjusted_fe
+  role: adjusted_ols_benchmark
+  priority: required
+  diagnostics_profile: ols_equation_interpretation
+  thesis_section:
+  - ols_core_equation
+  - ols_temporal_effects
+  - ols_geographic_effects
+  benchmark_policy: main_adjusted_ols_spec_for_coefficients_net_of_geo_time
+  required_artifacts:
+  - metrics/model_comparison.csv
+  - diagnostics/coefficients_transformed_all.csv
+  - diagnostics/design_matrix_features.csv
+  - diagnostics/fixed_effect_coefficients.csv
+  - diagnostics/fixed_effect_reference_levels.csv
+  - diagnostics/group_residual_summary.csv
+  - diagnostics/group_residual_variance_decomposition.csv
+- experiment_id: ols_core_geo_ranks
+  file: configs/experiment_ols_core_geo_ranks.yaml
+  family: ols_geo_rank_sensitivity
+  role: numeric_geo_rank_sensitivity
+  priority: optional
+  diagnostics_profile: ols_feature_family_study
+  thesis_section:
+  - ols_geo_rank_placebo
+  benchmark_policy: sensitivity_only
+- experiment_id: ols_core_shuffled_geo_ranks
+  file: configs/experiment_ols_core_shuffled_geo_ranks.yaml
+  family: ols_geo_rank_sensitivity
+  role: shuffled_geo_rank_placebo
+  priority: optional
+  diagnostics_profile: ols_feature_family_study
+  thesis_section:
+  - ols_geo_rank_placebo
+  benchmark_policy: placebo_only
+  
+  
 - experiment_id: baseline_income_prediction_v1
   file: configs/experiment_baseline.yaml
   family: thesis_core
@@ -18,8 +149,10 @@ experiments:
   - plots/validation/prediction_distribution_by_model.png
   - plots/validation/mae_by_income_decile.png
   - plots/validation/mean_residual_by_income_decile.png
+
+
 - experiment_id: hgb_quick_clean_geo_v1
-  file: configs/experiment_hgb_quick_clean_geo_v1.yaml
+  file: configs/experiment_geo_probe_v2_clean_geo.yaml
   family: geo_probe
   role: benchmark_anchor
   priority: required
@@ -41,6 +174,8 @@ experiments:
   - plots/validation/prediction_distribution_by_model.png
   - plots/validation/mae_by_income_decile.png
   - plots/validation/mean_residual_by_income_decile.png
+
+
 - experiment_id: hgb_quick_benchmark_v1
   file: configs/experiment_hgb_quick_benchmark.yaml
   family: thesis_core
@@ -64,3 +199,13 @@ experiments:
   - plots/validation/prediction_distribution_by_model.png
   - plots/validation/mae_by_income_decile.png
   - plots/validation/mean_residual_by_income_decile.png
+  
+  
+  
+benchmark_policy_notes:
+- 'Use ols_core as the clean OLS baseline for model-family comparisons: no pyramid, no geography, no temporal
+  FE.'
+- Use ols_core_aglo_plus_time_fe as the adjusted OLS specification for coefficient interpretation net
+  of agglomerado/year/quarter fixed effects.
+- Use household_pyramid only as an explicit sensitivity block, not as a default feature family.
+- Do not treat geo_ranks as a main benchmark; they are leakage/sensitivity/placebo diagnostics.

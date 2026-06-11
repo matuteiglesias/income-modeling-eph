@@ -1,21 +1,23 @@
 experiment:
-  id: hgb_quick_no_geo_v1
+  id: hgb_quick_shuffled_geo_ranks_v1
   kind: geography_leakage_probe
   random_seed: 42
 
 runtime:
   mode: sweep
-  sample_n: 25000
+  sample_n: 200000
   enabled_models:
     - hist_gradient_boosting
 
 feature_view:
-  name: no_geo
-  drop_columns:
-    - AGLOMERADO
-    - Region
-    - AGLO_rk
-    - Reg_rk
+  name: shuffled_geo_ranks
+  permute_group_values:
+    - column: AGLO_rk
+      group_by: AGLOMERADO
+      random_state: 42
+    - column: Reg_rk
+      group_by: Region
+      random_state: 42
 
 data:
   processed_dataset: data/processed/modeling_dataset.parquet
@@ -29,7 +31,7 @@ split:
   random_state: 42
 
 cv:
-  folds: 3
+  folds: 5
   scoring: r2
   return_train_score: true
 
@@ -50,7 +52,7 @@ diagnostics:
     decile_tail_summary: true
   comparison:
     family: geo_leakage_probe
-    variant: no_geo
+    variant: shuffled_geo_ranks
     anchor_variant: clean_geo
   plots:
     observed_vs_predicted: true
@@ -88,8 +90,8 @@ models:
     grid: {}
 
 outputs:
-  model_comparison: reports/tables/model_comparison_hgb_quick_no_geo_v1.csv
-  experiment_card: reports/experiment_cards/hgb_quick_no_geo_v1.json
+  model_comparison: reports/tables/model_comparison_hgb_quick_shuffled_geo_ranks_v1.csv
+  experiment_card: reports/experiment_cards/hgb_quick_shuffled_geo_ranks_v1.json
   runs_dir: reports/runs
 
 observability:

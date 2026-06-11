@@ -5,7 +5,7 @@ experiment:
 
 runtime:
   mode: sweep
-  sample_n: 100000
+  sample_n: 200000
   allow_full_run: false
   enabled_models:
     - hist_gradient_boosting
@@ -71,9 +71,9 @@ models:
     enabled: true
     grid:
       reg__loss: ["squared_error"]
-      reg__learning_rate: [0.075]
+      reg__learning_rate: [0.05]
       reg__max_iter: [200]
-      reg__max_leaf_nodes: [31]
+      reg__max_leaf_nodes: [63]
       reg__min_samples_leaf: [100]
       reg__l2_regularization: [0.0]
       reg__early_stopping: [false]

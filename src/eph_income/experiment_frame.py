@@ -146,6 +146,24 @@ def _string_level_values(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
     return values[columns[0]].str.cat(values[columns[1]], sep="__")
 
 
+# model_design:
+#   fixed_effects:
+#     - name: aglo
+#       columns: [AGLOMERADO]
+#       max_levels: 64
+#       drop_first: true
+#       drop_source_columns: true
+
+# model_design:
+#   fixed_effects:
+#     - name: aglo_year
+#       columns: [AGLOMERADO, ANO4]
+#       max_levels: 300
+#       drop_first: true
+#       drop_source_columns: true
+#       type: interaction
+
+
 def apply_fixed_effects(
     *,
     experiment_config: Mapping[str, Any],
@@ -168,6 +186,7 @@ def apply_fixed_effects(
         if not isinstance(columns_raw, list) or not columns_raw:
             raise ValueError(f"Fixed effect {fe_name} must declare a non-empty columns list.")
         source_columns = [str(column) for column in columns_raw]
+        drop_source_columns = bool(spec.get("drop_source_columns", False))
         if len(source_columns) > 2:
             raise ValueError(
                 f"Fixed effect {fe_name} declares {len(source_columns)} columns; "
@@ -184,6 +203,12 @@ def apply_fixed_effects(
             raise ValueError(f"Fixed effect {fe_name} must declare positive max_levels.")
 
         generated_column = _fixed_effect_column_name(fe_name)
+        if drop_source_columns:
+            final_feature_columns = [
+                column for column in final_feature_columns
+                if column not in set(source_columns)
+            ]
+
         if generated_column in frame.columns and generated_column not in final_feature_columns:
             raise ValueError(
                 f"Fixed effect {fe_name} generated column {generated_column} already exists "
@@ -198,14 +223,23 @@ def apply_fixed_effects(
         if generated_column not in final_feature_columns:
             final_feature_columns.append(generated_column)
 
+        level_counts = frame[generated_column].value_counts(dropna=False).sort_index()
         fixed_effect_metadata.append(
             {
                 "fe_name": fe_name,
                 "source_columns": source_columns,
                 "generated_column": generated_column,
+                "feature_family": "fixed_effect",
+                "feature_type": "fixed_effect",
                 "n_levels": n_levels,
+                "levels": [str(level) for level in level_counts.index.tolist()],
+                "level_counts": {
+                    str(level): int(count) for level, count in level_counts.items()
+                },
                 "max_levels": max_levels,
                 "drop_first": bool(spec.get("drop_first", False)),
+                "drop_source_columns": drop_source_columns,
+                "reference_level": spec.get("reference_level"),
             }
         )
 
@@ -220,6 +254,249 @@ def _fixed_effect_drop_first_columns(fixed_effects_used: list[dict[str, Any]]) -
         for spec in fixed_effects_used
         if bool(spec.get("drop_first", False))
     }
+
+
+def _feature_blocks_mapping(feature_contract: Mapping[str, Any]) -> Mapping[str, Any]:
+    blocks = feature_contract.get("feature_blocks", {})
+    if not isinstance(blocks, Mapping):
+        raise TypeError("feature_contract.feature_blocks must be a mapping.")
+    return blocks
+
+
+def _columns_from_block(block_name: str, block_spec: Mapping[str, Any]) -> list[str]:
+    columns: list[str] = []
+    for key in ["numeric", "categorical", "binary", "columns"]:
+        values = block_spec.get(key, [])
+        if values is None:
+            continue
+        if not isinstance(values, list):
+            raise TypeError(
+                f"feature_blocks.{block_name}.{key} must be a list."
+            )
+        columns.extend(str(v) for v in values)
+    return columns
+
+
+def _as_column_list(value: Any, *, block_name: str, key: str) -> list[str]:
+    """Normalize a feature-contract column list."""
+
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise TypeError(f"feature_blocks.{block_name}.{key} must be a list.")
+    return [str(column) for column in value]
+
+
+def _feature_type_priority(feature_type: str) -> int:
+    """Return precedence for resolving duplicate feature declarations."""
+
+    return {
+        "fixed_effect": 5,
+        "categorical": 4,
+        "binary": 3,
+        "continuous_numeric": 2,
+        "numeric": 2,
+        "unspecified": 1,
+    }.get(feature_type, 0)
+
+
+def _feature_contract_rows(feature_contract: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Return one metadata row per feature declaration in the feature contract.
+
+    The feature contract is the scientific source of truth for feature semantics.
+    Dtypes are intentionally not used here because many EPH categorical variables
+    are stored as numeric codes.
+    """
+
+    rows: list[dict[str, Any]] = []
+    for block_name, block_spec in _feature_blocks_mapping(feature_contract).items():
+        if not isinstance(block_spec, Mapping):
+            raise TypeError(f"feature_blocks.{block_name} must be a mapping.")
+
+        keyed_columns = {
+            "continuous_numeric": [
+                *_as_column_list(block_spec.get("continuous_numeric"), block_name=block_name, key="continuous_numeric"),
+                *_as_column_list(block_spec.get("numeric"), block_name=block_name, key="numeric"),
+            ],
+            "binary": _as_column_list(block_spec.get("binary"), block_name=block_name, key="binary"),
+            "categorical": _as_column_list(
+                block_spec.get("categorical"), block_name=block_name, key="categorical"
+            ),
+            # Legacy catch-all: useful for inclusion, but not enough to determine
+            # OLS interpretation. These columns will fall back to dtype unless
+            # they are also declared under numeric/binary/categorical.
+            "unspecified": _as_column_list(
+                block_spec.get("columns"), block_name=block_name, key="columns"
+            ),
+        }
+
+        for feature_type, columns in keyed_columns.items():
+            for order, column in enumerate(columns):
+                rows.append(
+                    {
+                        "column": column,
+                        "feature_family": str(block_name),
+                        "feature_type": feature_type,
+                        "source": f"feature_blocks.{block_name}.{feature_type}",
+                        "order_within_family": int(order),
+                        "is_fixed_effect": False,
+                    }
+                )
+    return rows
+
+
+def _merge_feature_metadata_rows(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Merge duplicate feature declarations into one stable row per column."""
+
+    merged: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        column = str(row["column"])
+        if column not in merged:
+            row = dict(row)
+            row["declared_families"] = [row["feature_family"]]
+            row["declared_types"] = [row["feature_type"]]
+            merged[column] = row
+            continue
+
+        current = merged[column]
+        if row["feature_family"] not in current["declared_families"]:
+            current["declared_families"].append(row["feature_family"])
+        if row["feature_type"] not in current["declared_types"]:
+            current["declared_types"].append(row["feature_type"])
+
+        if _feature_type_priority(str(row["feature_type"])) > _feature_type_priority(
+            str(current["feature_type"])
+        ):
+            current.update(
+                {
+                    "feature_family": row["feature_family"],
+                    "feature_type": row["feature_type"],
+                    "source": row["source"],
+                    "order_within_family": row["order_within_family"],
+                    "is_fixed_effect": row["is_fixed_effect"],
+                }
+            )
+    return merged
+
+
+def build_feature_metadata(
+    feature_contract: Mapping[str, Any],
+    feature_columns: list[str],
+    fixed_effects_used: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Build thesis-facing metadata for final model feature columns.
+
+    The returned rows are meant to feed both preprocessing and coefficient
+    diagnostics. They preserve the feature family and conceptual type declared in
+    the feature contract, and mark generated fixed-effect columns explicitly.
+    """
+
+    rows = _feature_contract_rows(feature_contract)
+    merged = _merge_feature_metadata_rows(rows)
+
+    for fe_spec in fixed_effects_used or []:
+        generated_column = str(fe_spec["generated_column"])
+        merged[generated_column] = {
+            "column": generated_column,
+            "feature_family": "fixed_effect",
+            "feature_type": "fixed_effect",
+            "source": "model_design.fixed_effects",
+            "order_within_family": 0,
+            "is_fixed_effect": True,
+            "fe_name": fe_spec.get("fe_name"),
+            "source_columns": list(fe_spec.get("source_columns", [])),
+            "drop_first": bool(fe_spec.get("drop_first", False)),
+            "reference_level": fe_spec.get("reference_level"),
+            "declared_families": ["fixed_effect"],
+            "declared_types": ["fixed_effect"],
+        }
+
+    metadata: list[dict[str, Any]] = []
+    for order, column in enumerate(feature_columns):
+        if column in merged:
+            row = dict(merged[column])
+        else:
+            row = {
+                "column": column,
+                "feature_family": "unregistered",
+                "feature_type": "unspecified",
+                "source": "not_declared_in_feature_contract",
+                "order_within_family": None,
+                "is_fixed_effect": False,
+                "declared_families": [],
+                "declared_types": [],
+            }
+        row["feature_order"] = int(order)
+        metadata.append(row)
+    return metadata
+
+
+def build_feature_type_spec(
+    feature_contract: Mapping[str, Any],
+    feature_columns: list[str],
+    fixed_effects_used: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Return explicit feature-type columns for ``pipelines.make_preprocessor``.
+
+    Columns declared only under the legacy catch-all ``columns`` key are left
+    out of the typed lists so the pipeline can fall back to dtype inference.
+    """
+
+    metadata = build_feature_metadata(feature_contract, feature_columns, fixed_effects_used)
+    typed = {
+        "continuous_numeric_columns": [],
+        "binary_columns": [],
+        "categorical_columns": [],
+        "fixed_effect_columns": [],
+    }
+    for row in metadata:
+        column = str(row["column"])
+        feature_type = str(row["feature_type"])
+        if feature_type in {"continuous_numeric", "numeric"}:
+            typed["continuous_numeric_columns"].append(column)
+        elif feature_type == "binary":
+            typed["binary_columns"].append(column)
+        elif feature_type == "categorical":
+            typed["categorical_columns"].append(column)
+        elif feature_type == "fixed_effect":
+            typed["fixed_effect_columns"].append(column)
+
+    return {
+        **typed,
+        "feature_metadata": metadata,
+    }
+
+
+def _resolve_include_blocks(
+    feature_contract: Mapping[str, Any],
+    include_blocks: list[str],
+) -> tuple[list[str], dict[str, Any]]:
+    blocks = _feature_blocks_mapping(feature_contract)
+    selected_columns: list[str] = []
+    missing_blocks: list[str] = []
+
+    for block_name in include_blocks:
+        if block_name not in blocks:
+            missing_blocks.append(block_name)
+            continue
+        block_spec = blocks[block_name]
+        if not isinstance(block_spec, Mapping):
+            raise TypeError(f"feature_blocks.{block_name} must be a mapping.")
+        selected_columns.extend(_columns_from_block(block_name, block_spec))
+
+    if missing_blocks:
+        raise ValueError(
+            "Unknown feature blocks requested: " + ", ".join(missing_blocks)
+        )
+
+    # preserve order, remove duplicates
+    selected_columns = list(dict.fromkeys(selected_columns))
+
+    metadata = {
+        "include_blocks": include_blocks,
+        "columns_from_blocks": selected_columns,
+    }
+    return selected_columns, metadata
 
 
 def _feature_view_mapping(experiment_config: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -322,7 +599,43 @@ def apply_feature_view(
     """
 
     feature_view = _feature_view_mapping(experiment_config)
+
+    include_blocks = feature_view.get("include_blocks")
     drop_columns = feature_view.get("drop_columns", [])
+
+    block_metadata: dict[str, Any] = {}
+
+    if include_blocks is not None:
+        if not isinstance(include_blocks, list):
+            raise TypeError("feature_view.include_blocks must be a list when provided.")
+
+        requested_block_columns, block_metadata = _resolve_include_blocks(
+            feature_contract,
+            [str(block) for block in include_blocks],
+        )
+
+        available_feature_columns = set(feature_columns)
+
+        missing_block_columns = [
+            column for column in requested_block_columns
+            if column not in available_feature_columns
+        ]
+
+        if missing_block_columns:
+            raise ValueError(
+                "feature_view.include_blocks requested columns not present in feature frame: "
+                + ", ".join(missing_block_columns)
+            )
+
+        base_feature_columns = [
+            column for column in requested_block_columns
+            if column in available_feature_columns
+        ]
+
+    else:
+        base_feature_columns = list(feature_columns)
+        missing_block_columns = []
+
     if drop_columns is None:
         drop_columns = []
     if not isinstance(drop_columns, list):
@@ -335,6 +648,7 @@ def apply_feature_view(
         raise TypeError("feature_view.permute_group_values must be a list when provided.")
 
     viewed = joined.copy()
+
     permutation_metadata = []
     for spec in permutation_specs:
         if not isinstance(spec, Mapping):
@@ -343,23 +657,47 @@ def apply_feature_view(
         permutation_metadata.append(metadata)
 
     requested_drop_columns = [str(column) for column in drop_columns]
-    feature_column_set = set(feature_columns)
+
+    base_feature_column_set = set(base_feature_columns)
+
     dropped_columns_present = [
-        column for column in requested_drop_columns if column in feature_column_set
+        column for column in requested_drop_columns
+        if column in base_feature_column_set
     ]
+
     dropped_columns_missing = [
-        column for column in requested_drop_columns if column not in feature_column_set
+        column for column in requested_drop_columns
+        if column not in base_feature_column_set
     ]
+
     dropped_column_set = set(dropped_columns_present)
+
     final_feature_columns = [
-        column for column in feature_columns if column not in dropped_column_set
+        column for column in base_feature_columns
+        if column not in dropped_column_set
     ]
 
     forbidden = get_forbidden_predictors(feature_contract)
     assert_no_forbidden_predictors(final_feature_columns, forbidden)
 
+    feature_metadata = build_feature_metadata(feature_contract, final_feature_columns)
+    feature_type_spec = build_feature_type_spec(feature_contract, final_feature_columns)
+
+    # Preserve lightweight metadata on the returned frame for interactive use.
+    # The runner should still pass feature_type_spec explicitly when constructing
+    # pipelines; pandas attrs are not a hard contract.
+    viewed.attrs["feature_metadata"] = feature_metadata
+    viewed.attrs["feature_type_spec"] = feature_type_spec
+
     metadata = {
         "name": feature_view.get("name"),
+        "include_blocks": include_blocks,
+        "block_metadata": block_metadata,
+        "missing_block_columns": missing_block_columns,
+        "base_feature_count": len(base_feature_columns),
+        "final_feature_count": len(final_feature_columns),
+        "feature_metadata": feature_metadata,
+        "feature_type_spec": feature_type_spec,
         "drop_columns": requested_drop_columns,
         "dropped_columns_present": dropped_columns_present,
         "dropped_columns_missing": dropped_columns_missing,
@@ -367,4 +705,5 @@ def apply_feature_view(
         "permuted_columns": [item["column"] for item in permutation_metadata],
         "group_by_columns": [item["group_by"] for item in permutation_metadata],
     }
+
     return viewed, final_feature_columns, metadata

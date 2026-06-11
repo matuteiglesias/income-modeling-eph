@@ -4,11 +4,17 @@ experiment:
 
 runtime:
   mode: sweep
-  sample_n: 100000
+  sample_n: 200000
   allow_full_run: false
   enabled_models:
     - hist_gradient_boosting
 
+feature_view:
+  name: clean_geo
+  drop_columns:
+    - AGLO_rk
+    - Reg_rk
+    
 data:
   processed_dataset: data/processed/modeling_dataset.parquet
   split_assignments: data/processed/split_assignments.csv
