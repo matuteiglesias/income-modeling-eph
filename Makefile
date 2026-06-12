@@ -168,7 +168,6 @@ run-ols-core-shuffled-geo-ranks:
 run-ols-core-aglo-fe-no-pyramid:
 	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_ols_core_aglo_fe_no_pyramid.yaml ALLOW_FULL_RUN=1
 
-
 run-ols-core-aglo-fe-no-pyramid-no-sanitation:
 	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_ols_core_aglo_fe_no_pyramid_no_sanitation.yaml ALLOW_FULL_RUN=1
 
