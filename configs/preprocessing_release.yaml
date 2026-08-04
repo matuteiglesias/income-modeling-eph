@@ -1,0 +1,13 @@
+schema_version: 1
+artifact: artifact:research.eph-annual-preprocessed@1
+source_release: artifact:publicdata.eph-microdata@1-provisional
+crosswalk_release: null
+monetary_reference:
+  status: unresolved_historical_materialization
+  price_series_id: provisional:legacy-price-series-unidentified
+ordering: [ANO4, TRIMESTRE, CODUSU]
+publish_requires:
+  - complete_column_lineage
+  - source_release_hashes
+  - explicit_monetary_reference
+  - passing_manifest_validation

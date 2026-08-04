@@ -1,4 +1,4 @@
-.PHONY: help install validate lint test build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep run-hgb-quick-benchmark run-hgb-quick-with-geo-ranks run-hgb-quick-clean-geo run-hgb-quick-no-geo run-hgb-quick-shuffled-geo-ranks run-ols-demo run-ols-demo-educ run-ols-demo-educ-labor run-ols-core run-ols-core-no-pyramid run-ols-core-with-pyramid run-ols-core-year-fe run-ols-core-quarter-fe run-ols-core-year-plus-quarter-fe run-ols-core-region-fe run-ols-core-aglo-fe run-ols-core-aglo-plus-time-fe run-ols-core-geo-ranks run-ols-core-shuffled-geo-ranks run-ols-core-aglo-fe-no-pyramid report build-diagnostics all
+.PHONY: help install validate lint test preprocessing-smoke preprocessing-release-fixture preprocessing-manifests build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep run-hgb-quick-benchmark run-hgb-quick-with-geo-ranks run-hgb-quick-clean-geo run-hgb-quick-no-geo run-hgb-quick-shuffled-geo-ranks run-ols-demo run-ols-demo-educ run-ols-demo-educ-labor run-ols-core run-ols-core-no-pyramid run-ols-core-with-pyramid run-ols-core-year-fe run-ols-core-quarter-fe run-ols-core-year-plus-quarter-fe run-ols-core-region-fe run-ols-core-aglo-fe run-ols-core-aglo-plus-time-fe run-ols-core-geo-ranks run-ols-core-shuffled-geo-ranks run-ols-core-aglo-fe-no-pyramid report build-diagnostics all
 
 
 PYTHON ?= python3
@@ -9,7 +9,10 @@ SPLIT ?= test
 help:
 	@echo "Available targets:"
 	@echo "  make install                     Install package with dev dependencies"
-	@echo "  make validate                    Validate upstream inputs without writing dataset outputs"
+	@echo "  make validate                    Validate annual releases without mutating annual inputs"
+	@echo "  make preprocessing-smoke         Characterize annual schemas and row counts"
+	@echo "  make preprocessing-release-fixture Run the bounded synthetic preprocessing fixture"
+	@echo "  make preprocessing-manifests     Regenerate annual release manifests"
 	@echo "  make lint                        Run ruff over source, tests, and scripts"
 	@echo "  make test                        Run pytest"
 	@echo "  make build-dataset               Build processed modeling dataset and split assignments"
@@ -57,6 +60,16 @@ install:
 
 validate:
 	$(PYTHON) scripts/01_build_dataset.py --check-only
+	$(PYTHON) scripts/11_preprocessing_authority.py validate --check
+
+preprocessing-smoke:
+	$(PYTHON) scripts/11_preprocessing_authority.py smoke
+
+preprocessing-release-fixture:
+	$(PYTHON) scripts/11_preprocessing_authority.py fixture
+
+preprocessing-manifests:
+	$(PYTHON) scripts/11_preprocessing_authority.py manifests
 
 lint:
 	ruff check src tests scripts
@@ -269,4 +282,3 @@ thesis-check:
 .PHONY: thesis-support thesis-full
 
 thesis-support: thesis-regularization thesis-hgb-sweeps thesis-geo-probe thesis-ols
-

@@ -1,9 +1,9 @@
 """Second-stage modeling feature engineering for EPH income experiments.
 
-The input files are annual preprocessed upstream artifacts. This module only
+The input files are repository-owned annual preprocessed release artifacts. This module only
 implements modeling-level transformations migrated from the legacy student
 feature engineering script; it does not download raw EPH files, deflate monetary
-columns, or recompute upstream ranks.
+columns, or recompute release-level ranks.
 """
 
 from __future__ import annotations

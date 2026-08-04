@@ -1,0 +1,1206 @@
+schema_version: 1
+artifact: artifact:research.eph-annual-preprocessed@1
+authority: repo.income-modeling-eph
+columns:
+  CODUSU:
+    type:
+    - str
+    entity_level: household
+    source_variables:
+    - CODUSU
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - provenance_only
+    leakage_sensitivity: none-known
+    legacy_name: CODUSU
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  ANO4:
+    type:
+    - int64
+    entity_level: time
+    source_variables:
+    - ANO4
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    - provenance
+    leakage_sensitivity: none-known
+    legacy_name: ANO4
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  TRIMESTRE:
+    type:
+    - int64
+    entity_level: time
+    source_variables:
+    - TRIMESTRE
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    - provenance
+    leakage_sensitivity: none-known
+    legacy_name: TRIMESTRE
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  AGLOMERADO:
+    type:
+    - int64
+    entity_level: geography
+    source_variables:
+    - AGLOMERADO
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: AGLOMERADO
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  V01:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - V01
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: V01
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  H05:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - H05
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: H05
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  H06:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - H06
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: H06
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  H07:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - H07
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: H07
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  H08:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - H08
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: H08
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  H09:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - H09
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: H09
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  H10:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - H10
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: H10
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  H11:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - H11
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: H11
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  H12:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - H12
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: H12
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  H16:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - H16
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: H16
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  H15:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - H15
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: H15
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  PROP:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - PROP
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - filter
+    leakage_sensitivity: none-known
+    legacy_name: PROP
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  H14:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - H14
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: H14
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  H13:
+    type:
+    - float64
+    - int64
+    entity_level: household
+    source_variables:
+    - H13
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: H13
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  IX_TOT:
+    type:
+    - int64
+    entity_level: household
+    source_variables:
+    - IX_TOT
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: IX_TOT
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  CAT_INAC:
+    type:
+    - int64
+    entity_level: person
+    source_variables:
+    - CAT_INAC
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: CAT_INAC
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  CAT_OCUP:
+    type:
+    - int64
+    entity_level: person
+    source_variables:
+    - CAT_OCUP
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: CAT_OCUP
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  P02:
+    type:
+    - int64
+    entity_level: person
+    source_variables:
+    - P02
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: P02
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  P03:
+    type:
+    - int64
+    entity_level: person
+    source_variables:
+    - P03
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: P03
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  CH07:
+    type:
+    - int64
+    entity_level: person
+    source_variables:
+    - CH07
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: CH07
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  P07:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - P07
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: P07
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  P08:
+    type:
+    - int64
+    entity_level: person
+    source_variables:
+    - P08
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: P08
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  P09:
+    type:
+    - int64
+    entity_level: person
+    source_variables:
+    - P09
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: P09
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  P10:
+    type:
+    - int64
+    entity_level: person
+    source_variables:
+    - P10
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: P10
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  P05:
+    type:
+    - float64
+    - int64
+    entity_level: person
+    source_variables:
+    - P05
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: P05
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  CONDACT:
+    type:
+    - int64
+    entity_level: person
+    source_variables:
+    - CONDACT
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: CONDACT
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  P21:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - P21
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: P21
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  P47T:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - P47T
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - target
+    - filter
+    leakage_sensitivity: target
+    legacy_name: P47T
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  PP07G1:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - PP07G1
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: PP07G1
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  PP07G2:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - PP07G2
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: PP07G2
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  PP07G3:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - PP07G3
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: PP07G3
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  PP07G4:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - PP07G4
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: PP07G4
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  PP07G_59:
+    type:
+    - float64
+    entity_level: derived
+    source_variables:
+    - PP07G_59
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: indicator-derivation
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: PP07G_59
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  PP07H:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - PP07H
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: PP07H
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  PP07I:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - PP07I
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: PP07I
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  PP07J:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - PP07J
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: PP07J
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  PP07K:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - PP07K
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: identity-or-harmonization
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: PP07K
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: provisionally-characterized
+  PP08D1:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - PP08D1
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: PP08D1
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  TOT_P12:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - TOT_P12
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: TOT_P12
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  T_VI:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - T_VI
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: T_VI
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  V12_M:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - V12_M
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: V12_M
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  V2_M:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - V2_M
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: V2_M
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  V3_M:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - V3_M
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: V3_M
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  V5_M:
+    type:
+    - float64
+    entity_level: person
+    source_variables:
+    - V5_M
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: V5_M
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  Region:
+    type:
+    - str
+    entity_level: derived
+    source_variables:
+    - Region
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: geographic-assignment
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: Region
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  Q:
+    type:
+    - str
+    entity_level: derived
+    source_variables:
+    - Q
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: indicator-derivation
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - provenance_only
+    leakage_sensitivity: none-known
+    legacy_name: Q
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  AGLO_rk:
+    type:
+    - float64
+    entity_level: derived
+    source_variables:
+    - AGLO_rk
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: geographic-rank
+    unit: rank [0,1]
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: target-derived
+    legacy_name: AGLO_rk
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  Reg_rk:
+    type:
+    - float64
+    entity_level: derived
+    source_variables:
+    - Reg_rk
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: geographic-rank
+    unit: rank [0,1]
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: target-derived
+    legacy_name: Reg_rk
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  INGRESO:
+    type:
+    - int64
+    entity_level: derived
+    source_variables:
+    - INGRESO
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: indicator-derivation
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - filter
+    leakage_sensitivity: sample-indicator
+    legacy_name: INGRESO
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  INGRESO_NLB:
+    type:
+    - int64
+    entity_level: derived
+    source_variables:
+    - INGRESO_NLB
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: indicator-derivation
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: income-indicator
+    legacy_name: INGRESO_NLB
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  INGRESO_JUB:
+    type:
+    - int64
+    entity_level: derived
+    source_variables:
+    - INGRESO_JUB
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: indicator-derivation
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: income-indicator
+    legacy_name: INGRESO_JUB
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  INGRESO_SBS:
+    type:
+    - int64
+    entity_level: derived
+    source_variables:
+    - INGRESO_SBS
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: indicator-derivation
+    unit: EPH code/domain
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2022
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: income-indicator
+    legacy_name: INGRESO_SBS
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  V2_01_M:
+    type:
+    - float64
+    - int64
+    entity_level: person
+    source_variables:
+    - V2_01_M
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2024
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: V2_01_M
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  V2_02_M:
+    type:
+    - float64
+    - int64
+    entity_level: person
+    source_variables:
+    - V2_02_M
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2024
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: V2_02_M
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  V2_03_M:
+    type:
+    - float64
+    - int64
+    entity_level: person
+    source_variables:
+    - V2_03_M
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2024
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: V2_03_M
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  V5_01_M:
+    type:
+    - float64
+    - int64
+    entity_level: person
+    source_variables:
+    - V5_01_M
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2024
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: V5_01_M
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  V5_02_M:
+    type:
+    - float64
+    - int64
+    entity_level: person
+    source_variables:
+    - V5_02_M
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2024
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: V5_02_M
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
+  V5_03_M:
+    type:
+    - float64
+    - int64
+    entity_level: person
+    source_variables:
+    - V5_03_M
+    producing_step: former-authority crear_EPH_training (function unavailable locally); materialized-input validation
+    transformation_class: monetary-normalization
+    unit: ARS, historical reference unresolved
+    allowed_missingness: observed; per-release counts are authoritative in manifests
+    domain: upstream EPH/domain registry unresolved
+    first_supported_vintage: 2024
+    last_supported_vintage: 2025
+    uses:
+    - feature
+    leakage_sensitivity: none-known
+    legacy_name: V5_03_M
+    legacy_status: carried-forward from EPHARG_train*; pairwise legacy artifact unavailable
+    reviewer_status: requires-review
