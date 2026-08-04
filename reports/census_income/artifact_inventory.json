@@ -1,0 +1,31 @@
+{
+  "artifacts": [],
+  "inference_attempted": false,
+  "inventory_version": 1,
+  "matching_final_output_found": false,
+  "next_step": "Mount or copy the historical indice-pobreza-UBA/encuestador-de-hogares workspaces, Census release, RFC files, fitted_RF/modelos, rank tables, and run metadata; rerun inventory.",
+  "release_produced": false,
+  "roots_inspected": [
+    {
+      "exists": true,
+      "path": "/workspace/income-modeling-eph"
+    },
+    {
+      "exists": false,
+      "path": "/media/matias/Elements/suite/out"
+    },
+    {
+      "exists": false,
+      "path": "/media/matias/Elements/suite/poblaciones"
+    },
+    {
+      "exists": false,
+      "path": "/workspace/indice-pobreza-UBA"
+    },
+    {
+      "exists": false,
+      "path": "/workspace/encuestador-de-hogares"
+    }
+  ],
+  "stop_reason": "No exactly matched Census sample and RFC4/final prediction pair was discovered; required historical model/feature artifacts are absent or unverified."
+}

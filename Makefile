@@ -1,4 +1,4 @@
-.PHONY: help install validate lint test preprocessing-smoke preprocessing-release-fixture preprocessing-manifests model-freeze-preflight model-input-lock model-input-lock-check model-run-resolve model-release model-release-check model-release-smoke build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep run-hgb-quick-benchmark run-hgb-quick-benchmark-freeze run-hgb-quick-with-geo-ranks run-hgb-quick-clean-geo run-hgb-quick-no-geo run-hgb-quick-shuffled-geo-ranks run-ols-demo run-ols-demo-educ run-ols-demo-educ-labor run-ols-core run-ols-core-no-pyramid run-ols-core-with-pyramid run-ols-core-year-fe run-ols-core-quarter-fe run-ols-core-year-plus-quarter-fe run-ols-core-region-fe run-ols-core-aglo-fe run-ols-core-aglo-plus-time-fe run-ols-core-geo-ranks run-ols-core-shuffled-geo-ranks run-ols-core-aglo-fe-no-pyramid report build-diagnostics all
+.PHONY: help install validate lint test census-inference-check census-inference-smoke census-income-release census-income-release-check preprocessing-smoke preprocessing-release-fixture preprocessing-manifests model-freeze-preflight model-input-lock model-input-lock-check model-run-resolve model-release model-release-check model-release-smoke build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep run-hgb-quick-benchmark run-hgb-quick-benchmark-freeze run-hgb-quick-with-geo-ranks run-hgb-quick-clean-geo run-hgb-quick-no-geo run-hgb-quick-shuffled-geo-ranks run-ols-demo run-ols-demo-educ run-ols-demo-educ-labor run-ols-core run-ols-core-no-pyramid run-ols-core-with-pyramid run-ols-core-year-fe run-ols-core-quarter-fe run-ols-core-year-plus-quarter-fe run-ols-core-region-fe run-ols-core-aglo-fe run-ols-core-aglo-plus-time-fe run-ols-core-geo-ranks run-ols-core-shuffled-geo-ranks run-ols-core-aglo-fe-no-pyramid report build-diagnostics all
 
 
 PYTHON ?= python3
@@ -15,6 +15,10 @@ help:
 	@echo "  make preprocessing-manifests     Regenerate annual release manifests"
 	@echo "  make lint                        Run ruff over source, tests, and scripts"
 	@echo "  make test                        Run pytest"
+	@echo "  make census-inference-check      Inventory local historical Census/RFC/model artifacts"
+	@echo "  make census-inference-smoke      Run deterministic three-classifier + regressor fixture"
+	@echo "  make census-income-release       Strictly package matched Census predictions"
+	@echo "  make census-income-release-check Validate an emitted release"
 	@echo "  make build-dataset               Build processed modeling dataset and split assignments"
 	@echo "  make run-experiment              Run any experiment config: EXPERIMENT_CONFIG=... [ALLOW_FULL_RUN=1]"
 	@echo "  make run-debug                   Run the small linear/Ridge debug experiment"
@@ -97,6 +101,20 @@ lint:
 
 test:
 	pytest -q
+
+census-inference-check:
+	$(PYTHON) scripts/13_census_income_release.py inventory
+
+census-inference-smoke:
+	$(PYTHON) scripts/13_census_income_release.py fixture
+
+census-income-release:
+	@test -n "$(CENSUS_RELEASE)" -a -n "$(PREDICTIONS)" -a -n "$(OUTPUT_ROOT)" || (echo "Required: CENSUS_RELEASE=... PREDICTIONS=... OUTPUT_ROOT=..."; exit 2)
+	$(PYTHON) scripts/13_census_income_release.py package --census-release "$(CENSUS_RELEASE)" --predictions "$(PREDICTIONS)" --output-dir "$(OUTPUT_ROOT)" --monetary-status "$(or $(MONETARY_STATUS),unresolved)" $(if $(STAGE_IDENTITIES),--stage-identities '$(STAGE_IDENTITIES)',)
+
+census-income-release-check:
+	@test -n "$(RELEASE_DIR)" || (echo "Required: RELEASE_DIR=..."; exit 2)
+	$(PYTHON) scripts/13_census_income_release.py check --release-dir "$(RELEASE_DIR)"
 
 build-dataset:
 	$(PYTHON) scripts/01_build_dataset.py
