@@ -2,8 +2,11 @@
   "artifact": {
     "bytes": 40671992,
     "path": "data/annual_preprocessed_inputs/EPHARG_annual_input_22.csv",
+    "role": "annual_preprocessed_input",
     "sha256": "05397f7e7c7ce174ffba4e17bcbbdfbbc5790d3e9aaebfb94b3a056908fc2dd3"
   },
+  "artifact_materialization_commit": "unresolved-historical-materialization",
+  "artifact_type": "research.eph-annual-preprocessed",
   "column_inventory": [
     "CODUSU",
     "ANO4",
@@ -64,6 +67,7 @@
   ],
   "columns": 56,
   "configuration_sha256": "0789d33cd699373efee41f22b5bae604e2585f3fd2cac2fd65eee931fa437fed",
+  "consumer_contract_sha256": "7c707909d58227d1ba03bc9f3f9b238e9cf5b631bfd231dd87f0b78d48ab96f6",
   "coverage": {
     "quarters": [
       1,
@@ -75,6 +79,8 @@
       2022
     ]
   },
+  "created_at": "2026-08-04T10:01:49+00:00",
+  "data_vintage": 2022,
   "entity_checks": {
     "candidate_person_key": [
       "CODUSU",
@@ -91,6 +97,14 @@
     "pandas": "3.0.5",
     "python": "3.12.13"
   },
+  "files": [
+    {
+      "bytes": 40671992,
+      "path": "data/annual_preprocessed_inputs/EPHARG_annual_input_22.csv",
+      "role": "annual_preprocessed_input",
+      "sha256": "05397f7e7c7ce174ffba4e17bcbbdfbbc5790d3e9aaebfb94b3a056908fc2dd3"
+    }
+  ],
   "geography": {
     "crosswalk_release_id": null,
     "rank_sources": [
@@ -98,8 +112,23 @@
       "data/info/Reg_rk"
     ]
   },
+  "inputs": [
+    {
+      "release_id": "artifact:publicdata.eph-microdata@1-provisional",
+      "sha256": "unresolved-upstream-hash"
+    }
+  ],
+  "limitations": [
+    "Historical materialization commit is unresolved.",
+    "Upstream source hashes and monetary reference are unresolved.",
+    "A true unique person key is unavailable.",
+    "This artifact is not declared compatible with a Census sample."
+  ],
   "lineage_registry_sha256": "486317890689d9d8cfba396261c5e719d7775a08f6f68d2e27c7773bd382b592",
+  "manifest_attestation_commit": "7db101fb4aec923f4b71fc55a1434c462ab11467",
+  "manifest_schema": "research-artifact-manifest/v1",
   "manifest_schema_version": "1.0",
+  "method_contract_version": "research.eph-annual-preprocessed/v1",
   "missingness": {
     "AGLOMERADO": 0,
     "AGLO_rk": 0,
@@ -162,9 +191,19 @@
     "price_series_id": "provisional:legacy-price-series-unidentified",
     "status": "unresolved_historical_materialization"
   },
-  "preprocessing_code_commit": "5477981175515aea2ec663e29c30f858d5ca3f6f",
+  "preprocessing_code_commit": "7db101fb4aec923f4b71fc55a1434c462ab11467",
+  "producer_repository": "matuteiglesias/income-modeling-eph",
   "producing_command": "python scripts/11_preprocessing_authority.py manifests",
   "release_id": "artifact:research.eph-annual-preprocessed@1+2022",
+  "release_status": "candidate",
+  "reports": [
+    {
+      "bytes": 44810,
+      "path": "configs/annual_input_lineage.yaml",
+      "role": "column_lineage_registry",
+      "sha256": "486317890689d9d8cfba396261c5e719d7775a08f6f68d2e27c7773bd382b592"
+    }
+  ],
   "rows": 189581,
   "schema": [
     {

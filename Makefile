@@ -1,4 +1,4 @@
-.PHONY: help install validate lint test preprocessing-smoke preprocessing-release-fixture preprocessing-manifests build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep run-hgb-quick-benchmark run-hgb-quick-with-geo-ranks run-hgb-quick-clean-geo run-hgb-quick-no-geo run-hgb-quick-shuffled-geo-ranks run-ols-demo run-ols-demo-educ run-ols-demo-educ-labor run-ols-core run-ols-core-no-pyramid run-ols-core-with-pyramid run-ols-core-year-fe run-ols-core-quarter-fe run-ols-core-year-plus-quarter-fe run-ols-core-region-fe run-ols-core-aglo-fe run-ols-core-aglo-plus-time-fe run-ols-core-geo-ranks run-ols-core-shuffled-geo-ranks run-ols-core-aglo-fe-no-pyramid report build-diagnostics all
+.PHONY: help install validate lint test preprocessing-smoke preprocessing-release-fixture preprocessing-manifests model-freeze-preflight model-input-lock model-input-lock-check model-run-resolve model-release model-release-check model-release-smoke build-dataset run-experiment run-debug run-baseline run-regularization-sweep run-hgb-debug run-hgb-sweep run-hgb-lr-iter-sweep run-hgb-leaf-capacity-sweep run-hgb-min-leaf-sweep run-hgb-l2-sweep run-hgb-quick-benchmark run-hgb-quick-benchmark-freeze run-hgb-quick-with-geo-ranks run-hgb-quick-clean-geo run-hgb-quick-no-geo run-hgb-quick-shuffled-geo-ranks run-ols-demo run-ols-demo-educ run-ols-demo-educ-labor run-ols-core run-ols-core-no-pyramid run-ols-core-with-pyramid run-ols-core-year-fe run-ols-core-quarter-fe run-ols-core-year-plus-quarter-fe run-ols-core-region-fe run-ols-core-aglo-fe run-ols-core-aglo-plus-time-fe run-ols-core-geo-ranks run-ols-core-shuffled-geo-ranks run-ols-core-aglo-fe-no-pyramid report build-diagnostics all
 
 
 PYTHON ?= python3
@@ -71,6 +71,27 @@ preprocessing-release-fixture:
 preprocessing-manifests:
 	$(PYTHON) scripts/11_preprocessing_authority.py manifests
 
+model-freeze-preflight:
+	$(PYTHON) scripts/12_flagship_freeze.py preflight
+
+model-input-lock:
+	$(PYTHON) scripts/12_flagship_freeze.py lock
+
+model-input-lock-check:
+	$(PYTHON) scripts/12_flagship_freeze.py lock-check
+
+model-run-resolve:
+	$(PYTHON) scripts/12_flagship_freeze.py resolve
+
+model-release:
+	$(PYTHON) scripts/12_flagship_freeze.py release
+
+model-release-check:
+	$(PYTHON) scripts/12_flagship_freeze.py release-check $(if $(RELEASE_DIR),--release-dir "$(RELEASE_DIR)",)
+
+model-release-smoke:
+	$(PYTHON) scripts/12_flagship_freeze.py release-smoke $(if $(RELEASE_DIR),--release-dir "$(RELEASE_DIR)",)
+
 lint:
 	ruff check src tests scripts
 
@@ -119,6 +140,9 @@ run-hgb-l2-sweep:
 
 run-hgb-quick-benchmark:
 	$(MAKE) run-experiment EXPERIMENT_CONFIG=configs/experiment_hgb_quick_benchmark.yaml ALLOW_FULL_RUN=1
+
+run-hgb-quick-benchmark-freeze:
+	$(PYTHON) scripts/02_run_baseline_experiment.py --config configs/experiment_hgb_quick_benchmark.yaml --feature-contract configs/feature_contract.yaml --allow-full-run --freeze-estimator
 
 
 

@@ -54,7 +54,12 @@ def main() -> None:
         if args.check:
             existing = json.loads(output.read_text())
             # Commit/environment fields are provenance snapshots, not content checks.
-            for volatile in ("preprocessing_code_commit", "environment"):
+            for volatile in (
+                "preprocessing_code_commit",
+                "manifest_attestation_commit",
+                "created_at",
+                "environment",
+            ):
                 generated[volatile] = existing.get(volatile)
             if generated != existing:
                 raise ValueError(f"Stale manifest: {output.relative_to(ROOT)}")

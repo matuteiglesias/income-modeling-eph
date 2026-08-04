@@ -594,6 +594,7 @@ def run_experiment(
     feature_contract: Mapping[str, Any],
     *,
     allow_full_run: bool = False,
+    freeze_estimator: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Run a debug or guarded full baseline model comparison and write outputs."""
 
@@ -739,6 +740,7 @@ def run_experiment(
     fixed_effect_coefficient_rows: list[dict[str, Any]] = []
     transformed_coefficient_rows: list[dict[str, Any]] = []
     predictions_by_split: dict[str, list[pd.DataFrame]] = {"test": [], "validation": []}
+    frozen_estimator_path: Path | None = None
 
     for model_key, model_config in enabled_model_configs(experiment_config).items():
         if multicollinearity_summary is not None:
@@ -796,6 +798,15 @@ def run_experiment(
             interval_seconds=heartbeat_interval,
         ):
             search.fit(train[feature_columns], train[target])
+        if freeze_estimator:
+            if experiment_config.get("experiment", {}).get("id") != "hgb_quick_benchmark_v1":
+                raise ValueError("Freeze-only estimator persistence is limited to hgb_quick_benchmark_v1.")
+            if frozen_estimator_path is not None:
+                raise ValueError("Freeze path requires exactly one enabled model.")
+            import joblib
+
+            frozen_estimator_path = run_dir / "artifacts" / "model_pipeline.joblib"
+            joblib.dump(search.best_estimator_, frozen_estimator_path)
         fit_time = time.perf_counter() - start
 
         cv_results = pd.DataFrame(search.cv_results_)

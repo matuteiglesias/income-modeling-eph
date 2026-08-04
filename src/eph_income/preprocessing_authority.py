@@ -18,6 +18,7 @@ import pandas as pd
 import yaml
 
 MANIFEST_SCHEMA_VERSION = "1.0"
+SHARED_MANIFEST_SCHEMA = "research-artifact-manifest/v1"
 ANNUAL_RELEASE_ID = "artifact:research.eph-annual-preprocessed@1"
 PROVISIONAL_SOURCE_RELEASE = "artifact:publicdata.eph-microdata@1-provisional"
 
@@ -49,6 +50,17 @@ def _git_commit(root: Path) -> str:
     return result.stdout.strip() if result.returncode == 0 else "unavailable"
 
 
+def _git_commit_timestamp(root: Path, commit: str) -> str:
+    result = subprocess.run(
+        ["git", "show", "-s", "--format=%cI", commit],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unavailable"
+
+
 def build_manifest(csv_path: Path, lineage_path: Path, root: Path) -> dict[str, Any]:
     """Describe an annual CSV without embedding a machine-local absolute path."""
 
@@ -64,22 +76,56 @@ def build_manifest(csv_path: Path, lineage_path: Path, root: Path) -> dict[str, 
     ]
     quarters = [
         int(value)
-        for value in sorted(
-            pd.to_numeric(frame["TRIMESTRE"], errors="coerce").dropna().unique()
-        )
+        for value in sorted(pd.to_numeric(frame["TRIMESTRE"], errors="coerce").dropna().unique())
     ]
     schema = [{"name": c, "dtype": str(frame[c].dtype)} for c in frame.columns]
     duplicate_rows = int(frame.duplicated().sum())
     key = [c for c in ("CODUSU", "ANO4", "TRIMESTRE", "P02", "P03") if c in frame]
+    commit = _git_commit(root)
+    configuration_path = root / "configs" / "preprocessing_release.yaml"
+    consumer_path = root / "configs" / "annual_input_consumer_contract.yaml"
+    artifact_file = {
+        "path": relpath,
+        "role": "annual_preprocessed_input",
+        "bytes": csv_path.stat().st_size,
+        "sha256": sha256_file(csv_path),
+    }
+    report_file = {
+        "path": lineage_path.resolve().relative_to(root.resolve()).as_posix(),
+        "role": "column_lineage_registry",
+        "bytes": lineage_path.stat().st_size,
+        "sha256": sha256_file(lineage_path),
+    }
     return {
+        "manifest_schema": SHARED_MANIFEST_SCHEMA,
         "manifest_schema_version": MANIFEST_SCHEMA_VERSION,
         "release_id": f"{ANNUAL_RELEASE_ID}+{years[0] if years else 'unknown'}",
-        "artifact": {"path": relpath, "bytes": csv_path.stat().st_size, "sha256": sha256_file(csv_path)},
+        "release_status": "candidate",
+        "artifact_type": "research.eph-annual-preprocessed",
+        "producer_repository": "matuteiglesias/income-modeling-eph",
+        "manifest_attestation_commit": commit,
+        "artifact_materialization_commit": "unresolved-historical-materialization",
+        "created_at": _git_commit_timestamp(root, commit),
+        "method_contract_version": "research.eph-annual-preprocessed/v1",
+        "data_vintage": years[0] if years else None,
+        "inputs": [
+            {"release_id": PROVISIONAL_SOURCE_RELEASE, "sha256": "unresolved-upstream-hash"}
+        ],
+        "files": [artifact_file],
+        "reports": [report_file],
+        "limitations": [
+            "Historical materialization commit is unresolved.",
+            "Upstream source hashes and monetary reference are unresolved.",
+            "A true unique person key is unavailable.",
+            "This artifact is not declared compatible with a Census sample.",
+        ],
+        "artifact": artifact_file,
         "source_releases": [
             {"release_id": PROVISIONAL_SOURCE_RELEASE, "sha256": "unresolved-upstream-hash"}
         ],
-        "preprocessing_code_commit": _git_commit(root),
-        "configuration_sha256": sha256_file(root / "configs" / "preprocessing_release.yaml"),
+        "preprocessing_code_commit": commit,
+        "configuration_sha256": sha256_file(configuration_path),
+        "consumer_contract_sha256": sha256_file(consumer_path) if consumer_path.exists() else None,
         "lineage_registry_sha256": sha256_file(lineage_path),
         "coverage": {"years": years, "quarters": quarters},
         "rows": int(len(frame)),
@@ -107,7 +153,9 @@ def build_manifest(csv_path: Path, lineage_path: Path, root: Path) -> dict[str, 
             "This manifest characterizes a materialized artifact; it does not prove raw-data reproduction.",
         ],
         "unresolved_lineage": sorted(
-            c for c, entry in lineage["columns"].items() if entry.get("reviewer_status") != "reviewed"
+            c
+            for c, entry in lineage["columns"].items()
+            if entry.get("reviewer_status") != "reviewed"
         ),
         "producing_command": "python scripts/11_preprocessing_authority.py manifests",
         "environment": {"python": platform.python_version(), "pandas": pd.__version__},
