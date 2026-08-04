@@ -1,0 +1,40 @@
+schema_version: 1
+contract_id: contract:research.eph-annual-preprocessed.consumer@1
+artifact: artifact:research.eph-annual-preprocessed@1
+minimum_manifest_schema_version: "1.0"
+required_for_dataset_building:
+  - CODUSU
+  - ANO4
+  - TRIMESTRE
+  - P47T
+  - INGRESO
+  - PROP
+  - P03
+  - P09
+  - H10
+  - H12
+target: {name: logP47T, source: P47T, transform: log10}
+filter_columns: [INGRESO, P47T, PROP]
+split_columns: []
+provenance_columns: [CODUSU, Q, ANO4, TRIMESTRE]
+feature_contract: configs/feature_contract.yaml
+deprecated_legacy_names:
+  EPHARG_train_22.csv: EPHARG_annual_input_22.csv
+  EPHARG_train_23.csv: EPHARG_annual_input_23.csv
+  EPHARG_train_24.csv: EPHARG_annual_input_24.csv
+  EPHARG_train_25.csv: EPHARG_annual_input_25.csv
+optional_columns:
+  AGLO_rk:
+    absent_behavior: allowed; geo-rank feature views must fail or explicitly omit the view
+    leakage_sensitivity: target-derived
+  Reg_rk:
+    absent_behavior: allowed; geo-rank feature views must fail or explicitly omit the view
+    leakage_sensitivity: target-derived
+  Region:
+    absent_behavior: clean geography and region fixed-effect experiments are unavailable
+  AGLOMERADO:
+    absent_behavior: agglomerate geography experiments are unavailable
+schema_variants:
+  vintages_2024_2025_only: [V2_01_M, V2_02_M, V2_03_M, V5_01_M, V5_02_M, V5_03_M]
+  handling: dataset builder drops these six columns from 2024/2025 before concatenation
+publication_policy: consumers must reject absent/stale manifests and unsupported manifest versions

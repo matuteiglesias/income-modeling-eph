@@ -1,0 +1,17 @@
+{
+  "households": [
+    {"CODUSU": "h1", "ANO4": 2023, "TRIMESTRE": 1, "AGLOMERADO": 10, "PROP": 1},
+    {"CODUSU": "h2", "ANO4": 2024, "TRIMESTRE": 2, "AGLOMERADO": 20, "PROP": null},
+    {"CODUSU": "h3", "ANO4": 2024, "TRIMESTRE": 2, "AGLOMERADO": 99, "PROP": 2}
+  ],
+  "persons": [
+    {"CODUSU": "h1", "ANO4": 2023, "TRIMESTRE": 1, "person_id": 1, "P47T_nominal": 1000},
+    {"CODUSU": "h1", "ANO4": 2023, "TRIMESTRE": 1, "person_id": 2, "P47T_nominal": 0},
+    {"CODUSU": "h2", "ANO4": 2024, "TRIMESTRE": 2, "person_id": 1, "P47T_nominal": 2200},
+    {"CODUSU": "missing", "ANO4": 2024, "TRIMESTRE": 2, "person_id": 1, "P47T_nominal": 2200}
+  ],
+  "region_by_agglomerate": {"10": "Pampeana", "20": "Cuyo"},
+  "monetary_factor_by_year": {"2023": 1.0, "2024": 2.0},
+  "agglomerate_rank_stub": {"10": 0.5, "20": 1.0},
+  "expected": {"rows": 4, "included_rows": 1, "valid_merge_rows": 3}
+}

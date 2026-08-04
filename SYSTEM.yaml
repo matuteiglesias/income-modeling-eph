@@ -9,36 +9,48 @@ system: research.eph
 role: income-modeling-workspace
 lifecycle: active
 authority:
-  status: proposed
+  status: current
   owns:
+  - acquisition-to-analysis EPH preprocessing after receipt of a source release
+  - annual preprocessed EPH artifact schema, lineage, manifests and releases
+  - household/person merge, harmonization, region assignment and monetary normalization policies
+  - geographic ranks and sample indicators in annual preprocessed artifacts
   - income targets, features, leakage exclusions, splits, training and metrics
   - reproducible EPH modeling outputs
   does_not_own:
-  - raw EPH acquisition
+  - official EPH source publication or raw archive acquisition and DBF conversion
   - official poverty publication
   - Census geography authority
 interfaces:
   consumes:
-  - artifact:publicdata.eph-microdata@1
-  - artifact:research.eph-census-crosswalk@1
+  - artifact:publicdata.eph-microdata@1-provisional
   produces:
+  - artifact:research.eph-annual-preprocessed@1
+  - artifact:research.eph-modeling-dataset@1
   - artifact:research.eph-income-model@1
   - artifact:research.eph-model-output@1
 upstream:
-- repo.eph-censo-aligner
 - repo.microdatos-eph-indec
 downstream:
 - repo.indice-pobreza-uba
-canonical_commands: []
+canonical_commands:
+- make validate
+- make test
+- make preprocessing-smoke
+- make preprocessing-release-fixture
+- make preprocessing-manifests
+- make build-dataset
 generated_paths:
 - artifacts/
 - reports/
 verification:
-  status: metadata-only
+  status: locally-characterized
   last_verified: '2026-08-04'
-  command: null
+  command: make validate
   unknowns:
-  - canonical training and smoke commands require local confirmation
+  - final upstream source release IDs and hashes
+  - historical monetary price series and reference period
+  - former-authority producer revision and external output hashes
 maintenance:
   cadence: quarterly
   next_review: '2026-11-01'

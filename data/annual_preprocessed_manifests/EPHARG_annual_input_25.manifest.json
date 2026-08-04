@@ -1,0 +1,503 @@
+{
+  "artifact": {
+    "bytes": 10825302,
+    "path": "data/annual_preprocessed_inputs/EPHARG_annual_input_25.csv",
+    "sha256": "460a6ee7b64eda71745fce2d3f069af903d1f747aa7b015079477aebe122d1e0"
+  },
+  "column_inventory": [
+    "CODUSU",
+    "ANO4",
+    "TRIMESTRE",
+    "AGLOMERADO",
+    "V01",
+    "H05",
+    "H06",
+    "H07",
+    "H08",
+    "H09",
+    "H10",
+    "H11",
+    "H12",
+    "H16",
+    "H15",
+    "PROP",
+    "H14",
+    "H13",
+    "IX_TOT",
+    "CAT_INAC",
+    "CAT_OCUP",
+    "P02",
+    "P03",
+    "CH07",
+    "P07",
+    "P08",
+    "P09",
+    "P10",
+    "P05",
+    "CONDACT",
+    "P21",
+    "P47T",
+    "PP07G1",
+    "PP07G2",
+    "PP07G3",
+    "PP07G4",
+    "PP07G_59",
+    "PP07H",
+    "PP07I",
+    "PP07J",
+    "PP07K",
+    "PP08D1",
+    "TOT_P12",
+    "T_VI",
+    "V12_M",
+    "V2_01_M",
+    "V2_02_M",
+    "V2_03_M",
+    "V2_M",
+    "V3_M",
+    "V5_01_M",
+    "V5_02_M",
+    "V5_03_M",
+    "V5_M",
+    "Region",
+    "Q",
+    "AGLO_rk",
+    "Reg_rk",
+    "INGRESO",
+    "INGRESO_NLB",
+    "INGRESO_JUB",
+    "INGRESO_SBS"
+  ],
+  "columns": 62,
+  "configuration_sha256": "0789d33cd699373efee41f22b5bae604e2585f3fd2cac2fd65eee931fa437fed",
+  "coverage": {
+    "quarters": [
+      1
+    ],
+    "years": [
+      2025
+    ]
+  },
+  "entity_checks": {
+    "candidate_person_key": [
+      "CODUSU",
+      "ANO4",
+      "TRIMESTRE",
+      "P02",
+      "P03"
+    ],
+    "candidate_person_key_unique": false,
+    "duplicate_complete_rows": 68,
+    "note": "A true person sequence key is not present; candidate uniqueness is diagnostic only."
+  },
+  "environment": {
+    "pandas": "3.0.5",
+    "python": "3.12.13"
+  },
+  "geography": {
+    "crosswalk_release_id": null,
+    "rank_sources": [
+      "data/info/AGLO_rk",
+      "data/info/Reg_rk"
+    ]
+  },
+  "lineage_registry_sha256": "486317890689d9d8cfba396261c5e719d7775a08f6f68d2e27c7773bd382b592",
+  "manifest_schema_version": "1.0",
+  "missingness": {
+    "AGLOMERADO": 0,
+    "AGLO_rk": 0,
+    "ANO4": 0,
+    "CAT_INAC": 0,
+    "CAT_OCUP": 0,
+    "CH07": 0,
+    "CODUSU": 0,
+    "CONDACT": 0,
+    "H05": 0,
+    "H06": 0,
+    "H07": 0,
+    "H08": 0,
+    "H09": 0,
+    "H10": 0,
+    "H11": 0,
+    "H12": 0,
+    "H13": 0,
+    "H14": 0,
+    "H15": 0,
+    "H16": 0,
+    "INGRESO": 0,
+    "INGRESO_JUB": 0,
+    "INGRESO_NLB": 0,
+    "INGRESO_SBS": 0,
+    "IX_TOT": 0,
+    "P02": 0,
+    "P03": 0,
+    "P05": 0,
+    "P07": 0,
+    "P08": 0,
+    "P09": 0,
+    "P10": 0,
+    "P21": 0,
+    "P47T": 0,
+    "PP07G1": 0,
+    "PP07G2": 0,
+    "PP07G3": 0,
+    "PP07G4": 0,
+    "PP07G_59": 0,
+    "PP07H": 0,
+    "PP07I": 0,
+    "PP07J": 0,
+    "PP07K": 0,
+    "PP08D1": 0,
+    "PROP": 0,
+    "Q": 0,
+    "Reg_rk": 0,
+    "Region": 0,
+    "TOT_P12": 0,
+    "TRIMESTRE": 0,
+    "T_VI": 0,
+    "V01": 0,
+    "V12_M": 0,
+    "V2_01_M": 0,
+    "V2_02_M": 0,
+    "V2_03_M": 0,
+    "V2_M": 0,
+    "V3_M": 0,
+    "V5_01_M": 0,
+    "V5_02_M": 0,
+    "V5_03_M": 0,
+    "V5_M": 0
+  },
+  "monetary_reference": {
+    "price_series_id": "provisional:legacy-price-series-unidentified",
+    "status": "unresolved_historical_materialization"
+  },
+  "preprocessing_code_commit": "5477981175515aea2ec663e29c30f858d5ca3f6f",
+  "producing_command": "python scripts/11_preprocessing_authority.py manifests",
+  "release_id": "artifact:research.eph-annual-preprocessed@1+2025",
+  "rows": 47950,
+  "schema": [
+    {
+      "dtype": "str",
+      "name": "CODUSU"
+    },
+    {
+      "dtype": "int64",
+      "name": "ANO4"
+    },
+    {
+      "dtype": "int64",
+      "name": "TRIMESTRE"
+    },
+    {
+      "dtype": "int64",
+      "name": "AGLOMERADO"
+    },
+    {
+      "dtype": "int64",
+      "name": "V01"
+    },
+    {
+      "dtype": "int64",
+      "name": "H05"
+    },
+    {
+      "dtype": "int64",
+      "name": "H06"
+    },
+    {
+      "dtype": "int64",
+      "name": "H07"
+    },
+    {
+      "dtype": "int64",
+      "name": "H08"
+    },
+    {
+      "dtype": "int64",
+      "name": "H09"
+    },
+    {
+      "dtype": "int64",
+      "name": "H10"
+    },
+    {
+      "dtype": "int64",
+      "name": "H11"
+    },
+    {
+      "dtype": "int64",
+      "name": "H12"
+    },
+    {
+      "dtype": "int64",
+      "name": "H16"
+    },
+    {
+      "dtype": "int64",
+      "name": "H15"
+    },
+    {
+      "dtype": "int64",
+      "name": "PROP"
+    },
+    {
+      "dtype": "int64",
+      "name": "H14"
+    },
+    {
+      "dtype": "int64",
+      "name": "H13"
+    },
+    {
+      "dtype": "int64",
+      "name": "IX_TOT"
+    },
+    {
+      "dtype": "int64",
+      "name": "CAT_INAC"
+    },
+    {
+      "dtype": "int64",
+      "name": "CAT_OCUP"
+    },
+    {
+      "dtype": "int64",
+      "name": "P02"
+    },
+    {
+      "dtype": "int64",
+      "name": "P03"
+    },
+    {
+      "dtype": "int64",
+      "name": "CH07"
+    },
+    {
+      "dtype": "float64",
+      "name": "P07"
+    },
+    {
+      "dtype": "int64",
+      "name": "P08"
+    },
+    {
+      "dtype": "int64",
+      "name": "P09"
+    },
+    {
+      "dtype": "int64",
+      "name": "P10"
+    },
+    {
+      "dtype": "int64",
+      "name": "P05"
+    },
+    {
+      "dtype": "int64",
+      "name": "CONDACT"
+    },
+    {
+      "dtype": "float64",
+      "name": "P21"
+    },
+    {
+      "dtype": "float64",
+      "name": "P47T"
+    },
+    {
+      "dtype": "float64",
+      "name": "PP07G1"
+    },
+    {
+      "dtype": "float64",
+      "name": "PP07G2"
+    },
+    {
+      "dtype": "float64",
+      "name": "PP07G3"
+    },
+    {
+      "dtype": "float64",
+      "name": "PP07G4"
+    },
+    {
+      "dtype": "float64",
+      "name": "PP07G_59"
+    },
+    {
+      "dtype": "float64",
+      "name": "PP07H"
+    },
+    {
+      "dtype": "float64",
+      "name": "PP07I"
+    },
+    {
+      "dtype": "float64",
+      "name": "PP07J"
+    },
+    {
+      "dtype": "float64",
+      "name": "PP07K"
+    },
+    {
+      "dtype": "float64",
+      "name": "PP08D1"
+    },
+    {
+      "dtype": "float64",
+      "name": "TOT_P12"
+    },
+    {
+      "dtype": "float64",
+      "name": "T_VI"
+    },
+    {
+      "dtype": "float64",
+      "name": "V12_M"
+    },
+    {
+      "dtype": "int64",
+      "name": "V2_01_M"
+    },
+    {
+      "dtype": "int64",
+      "name": "V2_02_M"
+    },
+    {
+      "dtype": "int64",
+      "name": "V2_03_M"
+    },
+    {
+      "dtype": "float64",
+      "name": "V2_M"
+    },
+    {
+      "dtype": "float64",
+      "name": "V3_M"
+    },
+    {
+      "dtype": "int64",
+      "name": "V5_01_M"
+    },
+    {
+      "dtype": "int64",
+      "name": "V5_02_M"
+    },
+    {
+      "dtype": "int64",
+      "name": "V5_03_M"
+    },
+    {
+      "dtype": "float64",
+      "name": "V5_M"
+    },
+    {
+      "dtype": "str",
+      "name": "Region"
+    },
+    {
+      "dtype": "str",
+      "name": "Q"
+    },
+    {
+      "dtype": "float64",
+      "name": "AGLO_rk"
+    },
+    {
+      "dtype": "float64",
+      "name": "Reg_rk"
+    },
+    {
+      "dtype": "int64",
+      "name": "INGRESO"
+    },
+    {
+      "dtype": "int64",
+      "name": "INGRESO_NLB"
+    },
+    {
+      "dtype": "int64",
+      "name": "INGRESO_JUB"
+    },
+    {
+      "dtype": "int64",
+      "name": "INGRESO_SBS"
+    }
+  ],
+  "schema_sha256": "d006833de63cece49721bf4359051e7553ab6dbdbeb3f187e10a4acf4febdabc",
+  "source_releases": [
+    {
+      "release_id": "artifact:publicdata.eph-microdata@1-provisional",
+      "sha256": "unresolved-upstream-hash"
+    }
+  ],
+  "unresolved_lineage": [
+    "AGLOMERADO",
+    "AGLO_rk",
+    "ANO4",
+    "CAT_INAC",
+    "CAT_OCUP",
+    "CH07",
+    "CODUSU",
+    "CONDACT",
+    "H05",
+    "H06",
+    "H07",
+    "H08",
+    "H09",
+    "H10",
+    "H11",
+    "H12",
+    "H13",
+    "H14",
+    "H15",
+    "H16",
+    "INGRESO",
+    "INGRESO_JUB",
+    "INGRESO_NLB",
+    "INGRESO_SBS",
+    "IX_TOT",
+    "P02",
+    "P03",
+    "P05",
+    "P07",
+    "P08",
+    "P09",
+    "P10",
+    "P21",
+    "P47T",
+    "PP07G1",
+    "PP07G2",
+    "PP07G3",
+    "PP07G4",
+    "PP07G_59",
+    "PP07H",
+    "PP07I",
+    "PP07J",
+    "PP07K",
+    "PP08D1",
+    "PROP",
+    "Q",
+    "Reg_rk",
+    "Region",
+    "TOT_P12",
+    "TRIMESTRE",
+    "T_VI",
+    "V01",
+    "V12_M",
+    "V2_01_M",
+    "V2_02_M",
+    "V2_03_M",
+    "V2_M",
+    "V3_M",
+    "V5_01_M",
+    "V5_02_M",
+    "V5_03_M",
+    "V5_M"
+  ],
+  "warnings": [
+    "Source release hashes and monetary reference require upstream reconciliation.",
+    "This manifest characterizes a materialized artifact; it does not prove raw-data reproduction."
+  ]
+}

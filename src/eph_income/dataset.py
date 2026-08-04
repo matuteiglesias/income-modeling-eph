@@ -3,8 +3,8 @@
 This module loads configured annual files, applies the known 2024/2025
 harmonization drops, runs second-stage modeling feature engineering, filters the
 target sample, constructs ``logP47T``, creates a stable ``row_id``, and writes
-metadata. It intentionally does not implement raw EPH preprocessing or model
-training.
+metadata. Annual release production/validation is owned by this repository but
+is kept separate from this modeling-dataset builder.
 """
 
 from __future__ import annotations
@@ -255,8 +255,8 @@ def build_modeling_dataset(
         "upstream_input_files": input_files,
         "input_artifact_type": "annual_preprocessed_eph_inputs",
         "input_artifact_note": (
-            "These files are fixed annual preprocessed EPH-derived inputs from an upstream "
-            "preprocessing pipeline, not the train subset of a train/test split."
+            "These repository-owned annual preprocessed EPH releases are fixed inputs to "
+            "modeling, not the train subset of a train/test split."
         ),
         "row_counts_by_file": row_counts_by_file,
         "row_count_before_filters": row_count_before_filters,
