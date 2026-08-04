@@ -1,0 +1,44 @@
+# This file declares the repository boundary and its place in the GitHub estate.
+schema_version: 1
+id: research.eph.model
+repository:
+  id: repo.income-modeling-eph
+  github: matuteiglesias/income-modeling-eph
+domain: research
+system: research.eph
+role: income-modeling-workspace
+lifecycle: active
+authority:
+  status: proposed
+  owns:
+  - income targets, features, leakage exclusions, splits, training and metrics
+  - reproducible EPH modeling outputs
+  does_not_own:
+  - raw EPH acquisition
+  - official poverty publication
+  - Census geography authority
+interfaces:
+  consumes:
+  - artifact:publicdata.eph-microdata@1
+  - artifact:research.eph-census-crosswalk@1
+  produces:
+  - artifact:research.eph-income-model@1
+  - artifact:research.eph-model-output@1
+upstream:
+- repo.eph-censo-aligner
+- repo.microdatos-eph-indec
+downstream:
+- repo.indice-pobreza-uba
+canonical_commands: []
+generated_paths:
+- artifacts/
+- reports/
+verification:
+  status: metadata-only
+  last_verified: '2026-08-04'
+  command: null
+  unknowns:
+  - canonical training and smoke commands require local confirmation
+maintenance:
+  cadence: quarterly
+  next_review: '2026-11-01'
