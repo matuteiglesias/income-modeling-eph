@@ -29,6 +29,11 @@ def parse_args() -> argparse.Namespace:
         help="Path to experiment YAML config.",
     )
     parser.add_argument(
+        "--freeze-estimator",
+        action="store_true",
+        help="Persist the fitted pipeline only for the governed flagship freeze run.",
+    )
+    parser.add_argument(
         "--feature-contract",
         default=DEFAULT_FEATURE_CONTRACT_PATH,
         help="Path to feature contract YAML config.",
@@ -57,7 +62,10 @@ def main() -> None:
         experiment_config["runtime"] = runtime
     feature_contract = load_feature_contract(args.feature_contract)
     comparison, card = run_experiment(
-        experiment_config, feature_contract, allow_full_run=args.allow_full_run
+        experiment_config,
+        feature_contract,
+        allow_full_run=args.allow_full_run,
+        freeze_estimator=args.freeze_estimator,
     )
     print(
         json.dumps(

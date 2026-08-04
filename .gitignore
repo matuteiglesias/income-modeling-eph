@@ -12,6 +12,8 @@ reports/runs/
 reports/figures/*.png
 reports/tables/*.csv
 reports/experiment_cards/*.json
+reports/thesis_evidence/
+artifacts/model_releases/
 
 # python
 __pycache__/

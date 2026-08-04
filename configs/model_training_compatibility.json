@@ -1,0 +1,25 @@
+{
+  "schema": "research-artifact-compatibility/v1",
+  "compatibility_id": "research.eph-annual-preprocessed/v1-to-research.eph-model-training/v1",
+  "source_artifact_type": "research.eph-annual-preprocessed",
+  "consumer_artifact_type": "research.eph-model-training",
+  "supported_manifest_schemas": ["research-artifact-manifest/v1"],
+  "supported_manifest_schema_versions": ["1.0"],
+  "required_vintages": [2022, 2023, 2024, 2025],
+  "required_files": [
+    "data/annual_preprocessed_inputs/EPHARG_annual_input_22.csv",
+    "data/annual_preprocessed_inputs/EPHARG_annual_input_23.csv",
+    "data/annual_preprocessed_inputs/EPHARG_annual_input_24.csv",
+    "data/annual_preprocessed_inputs/EPHARG_annual_input_25.csv"
+  ],
+  "minimum_required_columns": ["CODUSU", "ANO4", "TRIMESTRE", "P47T", "INGRESO", "PROP", "P03", "P09", "H10", "H12"],
+  "vintage_schema_handling": {
+    "2024-2025": "Drop V2_01_M, V2_02_M, V2_03_M, V5_01_M, V5_02_M, V5_03_M before concatenation."
+  },
+  "target_contract": {"name": "logP47T", "transform": "log10", "source": "P47T", "plus_one": false},
+  "inclusion_contract": ["INGRESO == 1", "P47T > 0", "PROP not missing"],
+  "geography_policy": {"AGLOMERADO": "optional ordinary geography", "Region": "optional ordinary geography", "AGLO_rk": "optional leakage-suspect target-derived rank", "Reg_rk": "optional leakage-suspect target-derived rank"},
+  "approved_mode_policy": "Reject unresolved source hashes, materialization commit, monetary reference, or person identity.",
+  "candidate_mode_policy": "Permit unresolved historical fields only when limitations remain explicit.",
+  "census_sample_compatible": false
+}
