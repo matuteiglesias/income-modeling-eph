@@ -6,21 +6,22 @@ repository:
   github: matuteiglesias/income-modeling-eph
 domain: research
 system: research.eph
-role: income-modeling-workspace
+role: income-modeling-research-workspace
 lifecycle: active
 authority:
   status: current
   owns:
-  - acquisition-to-analysis EPH preprocessing after receipt of a source release
+  - EPH preprocessing after receipt of a versioned source release
   - annual preprocessed EPH artifact schema, lineage, manifests and releases
-  - household/person merge, harmonization, region assignment and monetary normalization policies
-  - geographic ranks and sample indicators in annual preprocessed artifacts
-  - income targets, features, leakage exclusions, splits, training and metrics
-  - reproducible EPH modeling outputs
+  - modeling dataset, income target, features, leakage exclusions and split policy
+  - model training, experiment comparison, diagnostics and scientific evidence
+  - promotion evidence and candidate EPH income-model bundles
   does_not_own:
   - official EPH source publication or raw archive acquisition and DBF conversion
-  - official poverty publication
-  - Census geography authority
+  - semantic EPH-to-Census variable mapping authority
+  - Census sample identity or Census geography authority
+  - execution of promoted models over exact Census sample releases
+  - poverty methodology or official poverty publication
 interfaces:
   consumes:
   - artifact:publicdata.eph-microdata@1-provisional
@@ -31,8 +32,10 @@ interfaces:
   - artifact:research.eph-model-output@1
 upstream:
 - repo.microdatos-eph-indec
+- repo.eph-censo-aligner (semantic deployment constraints when applicable)
 downstream:
-- repo.indice-pobreza-uba
+- repo.sampler-censo-arg (future promoted-model scoring consumer)
+- repo.indice-pobreza-uba (prediction lineage consumer, not direct training runtime)
 canonical_commands:
 - make validate
 - make test
@@ -50,7 +53,8 @@ verification:
   unknowns:
   - final upstream source release IDs and hashes
   - historical monetary price series and reference period
-  - former-authority producer revision and external output hashes
+  - deployment-safe model bundle and promotion contract are not yet finalized
+  - staged Census code currently present is provisional and not the long-term scoring authority
 maintenance:
   cadence: quarterly
   next_review: '2026-11-01'
