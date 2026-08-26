@@ -1,22 +1,22 @@
 # EPH Income Modeling
 
-This repository is the preprocessing authority and thesis experiment layer for a reproducible EPH
-income-prediction baseline.
+Scientific workspace for reproducible EPH income-prediction experiments, controlled model comparison, training evidence and promotion of model candidates.
+
+## Authority boundary
+
+This repository owns EPH-side preprocessing after receipt of a versioned source release, modeling-dataset construction, targets/features/leakage policy, splits, training, diagnostics, experiment comparison and evidence used to decide whether a model is suitable for promotion.
+
+It does **not** own execution of a promoted model over an exact Census sample. Census sample identity and downstream scoring orchestration belong outside this thesis/experiment workspace; semantic EPH↔Censo mappings belong to `eph-censo-aligner`.
+
+A useful invariant for future promotion is:
+
+> A Census-deployable model candidate must expose an input contract that can be constructed from an approved EPH↔Censo deployment feature frame without importing this research repository at scoring time.
 
 ## Data boundary
 
-The input CSV files in `data/annual_preprocessed_inputs/` are the repository-owned release
-`artifact:research.eph-annual-preprocessed@1`. They are annual preprocessed EPH-derived artifacts, not raw INDEC
-microdata and not the train subset of the train/test/validation split. The historical files were produced by the
-former authority, `encuestador-de-hogares`, and renamed from `EPHARG_train*` without content changes.
+The CSV files in `data/annual_preprocessed_inputs/` are repository-owned `artifact:research.eph-annual-preprocessed@1` artifacts. They are EPH-derived annual inputs, not raw INDEC microdata and not train subsets. Historical files came from the former `encuestador-de-hogares` authority and were renamed without content changes.
 
-This repository now owns acquisition-to-analysis preprocessing after receipt of a versioned EPH source release,
-household/person merge policy, harmonization, regional assignment, monetary normalization, rank and indicator
-derivation, annual releases, and the downstream modeling system. It does not own official EPH publication, raw
-archive acquisition/DBF conversion, official geography, or official poverty statistics. The current materialized
-files can be validated and manifested locally; their original raw source hashes and monetary reference remain
-explicitly provisional pending upstream reconciliation. See
-[`docs/PREPROCESSING_CHARACTERIZATION.md`](docs/PREPROCESSING_CHARACTERIZATION.md).
+Current preprocessing authority includes household/person merge policy, harmonization, regional assignment, monetary normalization, ranks/indicators and annual release evidence after receipt of an upstream EPH source release. It does not own official EPH publication, raw archive acquisition/DBF conversion, official geography or official poverty statistics. See `docs/PREPROCESSING_CHARACTERIZATION.md`.
 
 Expected input artifacts:
 
@@ -24,6 +24,14 @@ Expected input artifacts:
 - `data/annual_preprocessed_inputs/EPHARG_annual_input_23.csv`
 - `data/annual_preprocessed_inputs/EPHARG_annual_input_24.csv`
 - `data/annual_preprocessed_inputs/EPHARG_annual_input_25.csv`
+
+## Research and deployment are different surfaces
+
+The frozen HGB flagship is an EPH research/model-release candidate and explicitly rejects Census-shaped inference. It should remain a scientific benchmark rather than being retrofitted by silently substituting Census-derived columns.
+
+The repository also contains the newer staged Census experiment/packaging path (`src/eph_income/census_income.py`, `docs/STAGED_CENSUS_INFERENCE_DESIGN.md`). That code is preserved as a **provisional bridge and research prototype**: in particular its out-of-fold intermediate-prediction design is scientifically useful. Its current presence does not make this repository the long-term owner of Census sample execution.
+
+No code is removed by this boundary declaration. A later implementation can extract/promote deployment-safe model bundles and move scoring orchestration downstream only after exact contracts are proven.
 
 ## Current command surface
 
@@ -39,8 +47,6 @@ python scripts/02_run_baseline_experiment.py --config configs/experiment_baselin
 make run-baseline
 ```
 
-The debug runtime intentionally uses a small sample and minimal model set. Full baseline training is enabled behind an explicit guard because the configured HistGradientBoostingRegressor and MLPRegressor grids can be expensive on the full processed dataset.
+The debug runtime intentionally uses a small sample and minimal model set. Full baseline training remains explicitly guarded.
 
-The machine-readable annual column lineage is `configs/annual_input_lineage.yaml`; per-release manifests are in
-`data/annual_preprocessed_manifests/`; and the Batch 2 contract is
-`configs/annual_input_consumer_contract.yaml`. Ordinary validation does not mutate committed annual CSVs.
+The machine-readable annual column lineage is `configs/annual_input_lineage.yaml`; per-release manifests are under `data/annual_preprocessed_manifests/`; and the annual-input consumer contract is `configs/annual_input_consumer_contract.yaml`. Ordinary validation does not mutate committed annual CSVs.

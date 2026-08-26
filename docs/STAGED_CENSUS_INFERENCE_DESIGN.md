@@ -1,5 +1,12 @@
 # Staged Census income inference design
 
+> **Boundary status (2026-08-26): provisional bridge.** The staged design and its
+> out-of-fold training rule remain valuable research evidence, but the presence of
+> `census_income.py` and Census packaging helpers in this repository does not make
+> this thesis/experiment workspace the long-term owner of execution over Census
+> sample releases. Future promotion should preserve the scientific design while
+> allowing scoring orchestration to live with the exact Census sample consumer.
+
 ## Decision
 
 The Census path is a separate, explicit staged estimator. It is **not** a mode of
