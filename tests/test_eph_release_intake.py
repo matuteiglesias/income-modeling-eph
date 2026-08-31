@@ -120,8 +120,12 @@ def test_verify_and_pin_copies_exact_parent_without_preprocessing():
         assert lock["release_id"] == release_id
         assert lock["period"] == {"year": 2026, "quarter": "Q1"}
         assert lock["selection"]["mode"] == "convergence"
-        assert "preprocess" not in json.dumps(lock).lower()
-        assert lock["limitations"]
+        assert "annual_release" not in lock
+        assert "transformation" not in lock
+        assert any(
+            "does not approve an annual preprocessing method" in limitation.lower()
+            for limitation in lock["limitations"]
+        )
 
 
 def test_same_exact_parent_is_idempotent():
