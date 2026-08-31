@@ -1,6 +1,15 @@
 name: Scheduled durable EPH parent discovery
 
 on:
+  # Temporary main-only trigger for the first real producer→consumer proof.
+  # Remove after the live 2026-Q1 intake is recorded; normal cadence is Tuesday + UI.
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/scheduled-eph-parent-discovery.yml
+      - src/eph_income/eph_release_intake.py
+      - scripts/14_eph_release_intake.py
   workflow_dispatch:
     inputs:
       release_tag:
