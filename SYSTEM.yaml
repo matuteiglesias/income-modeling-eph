@@ -24,7 +24,7 @@ authority:
   - poverty methodology or official poverty publication
 interfaces:
   consumes:
-  - artifact:publicdata.eph-microdata@1-provisional
+  - artifact:publicdata.eph-microdata@1
   produces:
   - artifact:research.eph-annual-preprocessed@1
   - artifact:research.eph-modeling-dataset@1
@@ -47,11 +47,16 @@ generated_paths:
 - artifacts/
 - reports/
 verification:
-  status: locally-characterized
-  last_verified: '2026-08-04'
+  status: durable-upstream-intake-proven-preprocessing-reconstruction-pending
+  last_verified: '2026-08-31'
   command: make validate
+  evidence:
+  - independent consumer intake verifies and pins durable publicdata.eph-microdata@1 releases without importing producer runtime
+  - live run 33358100454 consumed candidate-eph-2026-q1-beff9b8299d5 from microdatos-EPH-INDEC
+  - live intake verified discovery, transport checksum, producer manifest, retained official source archive and normalized file inventory before writing an exact parent lock
+  - scheduled convergence mode fails on the selected newest invalid candidate rather than silently falling back; exact-tag reproduction is available separately
   unknowns:
-  - final upstream source release IDs and hashes
+  - source-backed quarterly-to-neutral-analysis-frame transformation remains unresolved under issues #24 and #29
   - historical monetary price series and reference period
   - deployment-safe model bundle and promotion contract are not yet finalized
   - staged Census code currently present is provisional and not the long-term scoring authority
