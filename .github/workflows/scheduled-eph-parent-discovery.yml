@@ -29,7 +29,9 @@ concurrency:
 jobs:
   intake:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src
     steps:
       - name: Check out consumer repository
         uses: actions/checkout@v4
@@ -38,9 +40,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
 
-      - name: Install consumer package
-        run: python -m pip install -e '.[dev]'
+      - name: Install bounded test tool
+        run: python -m pip install pytest
 
       - name: Verify intake contract offline
         run: python -m pytest -q tests/test_eph_release_intake.py
