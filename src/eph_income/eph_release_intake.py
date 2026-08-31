@@ -227,8 +227,10 @@ def verify_and_pin(
             "local_release_root": release_id,
             "limitations": [
                 "This lock proves exact upstream EPH transport/custody only.",
-                "It does not approve an annual preprocessing method, modeling cohort, "
-                "monetary transform, or downstream scientific use.",
+                (
+                    "It does not approve an annual preprocessing method, modeling cohort, "
+                    "monetary transform, or downstream scientific use."
+                ),
             ],
         }
         (payload_root / "parent_lock.json").write_text(
