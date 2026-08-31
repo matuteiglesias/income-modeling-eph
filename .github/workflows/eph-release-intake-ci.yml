@@ -25,6 +25,8 @@ jobs:
   intake:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      PYTHONPATH: src
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
@@ -38,8 +40,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install development dependencies
-        run: python -m pip install -e '.[dev]'
+      - name: Install bounded test tools
+        run: python -m pip install pytest ruff
 
       - name: Lint intake boundary
         run: ruff check src/eph_income/eph_release_intake.py scripts/14_eph_release_intake.py tests/test_eph_release_intake.py
