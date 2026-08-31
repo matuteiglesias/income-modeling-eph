@@ -1,0 +1,154 @@
+name: Scheduled durable EPH parent discovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional exact candidate-eph-* tag for reproduction; blank selects newest candidate
+        required: false
+        type: string
+  schedule:
+    - cron: "27 10 * * 2"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduled-durable-eph-parent-discovery
+  cancel-in-progress: false
+
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out consumer repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install consumer package
+        run: python -m pip install -e '.[dev]'
+
+      - name: Verify intake contract offline
+        run: python -m pytest -q tests/test_eph_release_intake.py
+
+      - name: Select one exact durable EPH candidate
+        id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -eu
+          requested="${REQUESTED_TAG:-}"
+          if [ -n "$requested" ]; then
+            case "$requested" in
+              candidate-eph-*) ;;
+              *) echo "Explicit release tag must start with candidate-eph-" >&2; exit 2 ;;
+            esac
+            tag="$requested"
+            mode="reproduction"
+          else
+            tag=$(gh release list \
+              --repo matuteiglesias/microdatos-EPH-INDEC \
+              --limit 50 \
+              --json tagName,isPrerelease,publishedAt \
+              --jq '[.[] | select(.isPrerelease and (.tagName | startswith("candidate-eph-")))] | sort_by(.publishedAt) | last | .tagName // empty')
+            mode="convergence"
+          fi
+          test -n "$tag" || (echo "No durable candidate-eph-* release is discoverable" >&2; exit 3)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Selected $tag in $mode mode"
+
+      - name: Download discovery envelope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.select.outputs.tag }}
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/eph-upstream"
+          gh release download "$RELEASE_TAG" \
+            --repo matuteiglesias/microdatos-EPH-INDEC \
+            -p discovery.json \
+            -D "$RUNNER_TEMP/eph-upstream"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path(os.environ["RUNNER_TEMP"]) / "eph-upstream" / "discovery.json"
+          d = json.loads(path.read_text())
+          if d.get("schema") != "ecosystem-release-discovery/v1":
+              raise SystemExit("unexpected discovery schema")
+          if d.get("producer") != "matuteiglesias/microdatos-EPH-INDEC":
+              raise SystemExit("unexpected producer")
+          if d.get("artifact_type") != "publicdata.eph-microdata@1":
+              raise SystemExit("unexpected artifact type")
+          asset = (d.get("github_release") or {}).get("asset_name")
+          if not asset:
+              raise SystemExit("discovery does not declare an asset")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as fh:
+              fh.write(f"EPH_ASSET={asset}\n")
+          PY
+
+      - name: Download exact declared release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.select.outputs.tag }}
+        run: |
+          set -eu
+          gh release download "$RELEASE_TAG" \
+            --repo matuteiglesias/microdatos-EPH-INDEC \
+            -p "$EPH_ASSET" \
+            -D "$RUNNER_TEMP/eph-upstream"
+
+      - name: Verify, copy and pin exact EPH parent
+        env:
+          RELEASE_TAG: ${{ steps.select.outputs.tag }}
+          SELECTION_MODE: ${{ steps.select.outputs.mode }}
+        run: |
+          set -eu
+          python scripts/14_eph_release_intake.py \
+            --discovery "$RUNNER_TEMP/eph-upstream/discovery.json" \
+            --asset "$RUNNER_TEMP/eph-upstream/$EPH_ASSET" \
+            --output-root "$RUNNER_TEMP/eph-parents" \
+            --selection-mode "$SELECTION_MODE" \
+            --transport-tag "$RELEASE_TAG" \
+            > "$RUNNER_TEMP/eph-intake-result.json"
+
+      - name: Summarize exact parent boundary
+        if: always()
+        env:
+          RELEASE_TAG: ${{ steps.select.outputs.tag }}
+          SELECTION_MODE: ${{ steps.select.outputs.mode }}
+        run: |
+          {
+            echo "## Durable EPH parent discovery"
+            echo
+            echo "Selection mode: **${SELECTION_MODE:-unresolved}**"
+            echo "Selected tag: **${RELEASE_TAG:-unresolved}**"
+            echo
+            echo "This job proves transport/custody only. It intentionally does not rebuild the historical annual CSVs, choose survey-weight semantics, define the neutral EPH analysis-frame schema, or approve a modeling/transport cohort."
+            echo
+            echo "A failure of the selected newest candidate is visible; convergence mode does not silently fall back to an older release."
+            if [ -f "$RUNNER_TEMP/eph-intake-result.json" ]; then
+              echo
+              echo '```json'
+              cat "$RUNNER_TEMP/eph-intake-result.json"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve intake evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: durable-eph-parent-intake
+          path: |
+            ${{ runner.temp }}/eph-upstream/discovery.json
+            ${{ runner.temp }}/eph-intake-result.json
+            ${{ runner.temp }}/eph-parents/*/parent_lock.json
+          if-no-files-found: warn
+          retention-days: 14
