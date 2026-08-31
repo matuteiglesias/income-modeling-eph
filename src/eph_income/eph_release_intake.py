@@ -6,14 +6,14 @@ frame; that scientific work remains governed by issues #24/#29.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
 import shutil
 import tempfile
 import zipfile
+from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
 
 DISCOVERY_SCHEMA = "ecosystem-release-discovery/v1"
 EXPECTED_PRODUCER = "matuteiglesias/microdatos-EPH-INDEC"
@@ -101,9 +101,10 @@ def verify_and_pin(
     expected_asset_sha = github_release.get("asset_sha256")
     expected_manifest_sha = github_release.get("manifest_sha256")
     declared_tag = github_release.get("tag")
-    if not all(isinstance(v, str) and v for v in (
-        expected_asset, expected_asset_sha, expected_manifest_sha, declared_tag
-    )):
+    if not all(
+        isinstance(value, str) and value
+        for value in (expected_asset, expected_asset_sha, expected_manifest_sha, declared_tag)
+    ):
         raise IntakeError("incomplete_github_release_locator")
     if asset_path.name != expected_asset:
         raise IntakeError("asset_name_mismatch")
@@ -148,7 +149,10 @@ def verify_and_pin(
 
         if output_manifest.get("release_id") != release_id:
             raise IntakeError("inner_release_id_mismatch")
-        if output_manifest.get("requested_year") != year or output_manifest.get("requested_quarter") != quarter:
+        if (
+            output_manifest.get("requested_year") != year
+            or output_manifest.get("requested_quarter") != quarter
+        ):
             raise IntakeError("inner_period_mismatch")
         if sha256_file(output_manifest_path) != expected_manifest_sha:
             raise IntakeError("producer_manifest_checksum_mismatch")
@@ -157,9 +161,10 @@ def verify_and_pin(
         source_manifest_sha = source_discovery.get("source_manifest_sha256")
         source_archive_sha = source_discovery.get("source_archive_sha256")
         source_name = source_discovery.get("original_filename")
-        if not all(isinstance(v, str) and v for v in (
-            source_manifest_sha, source_archive_sha, source_name
-        )):
+        if not all(
+            isinstance(value, str) and value
+            for value in (source_manifest_sha, source_archive_sha, source_name)
+        ):
             raise IntakeError("incomplete_source_identity")
         if Path(source_name).name != source_name:
             raise IntakeError("invalid_source_filename")
@@ -171,7 +176,10 @@ def verify_and_pin(
             raise IntakeError("output_source_archive_mismatch")
         if source_manifest.get("sha256") != source_archive_sha:
             raise IntakeError("source_manifest_archive_mismatch")
-        if source_manifest.get("requested_year") != year or source_manifest.get("requested_quarter") != quarter:
+        if (
+            source_manifest.get("requested_year") != year
+            or source_manifest.get("requested_quarter") != quarter
+        ):
             raise IntakeError("source_period_mismatch")
         if source_manifest.get("original_filename") != source_name:
             raise IntakeError("source_filename_mismatch")
@@ -219,10 +227,13 @@ def verify_and_pin(
             "local_release_root": release_id,
             "limitations": [
                 "This lock proves exact upstream EPH transport/custody only.",
-                "It does not approve an annual preprocessing method, modeling cohort, monetary transform, or downstream scientific use.",
+                "It does not approve an annual preprocessing method, modeling cohort, "
+                "monetary transform, or downstream scientific use.",
             ],
         }
-        (payload_root / "parent_lock.json").write_text(canonical_json(lock), encoding="utf-8")
+        (payload_root / "parent_lock.json").write_text(
+            canonical_json(lock), encoding="utf-8"
+        )
         os.replace(payload_root, destination)
         staging.rmdir()
         return destination
