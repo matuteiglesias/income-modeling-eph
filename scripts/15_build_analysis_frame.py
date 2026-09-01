@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Build one neutral EPH analysis-frame release from one pinned parent."""
 from __future__ import annotations
 
