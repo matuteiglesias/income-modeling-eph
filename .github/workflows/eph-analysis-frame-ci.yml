@@ -1,0 +1,65 @@
+name: EPH analysis frame CI
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/eph-analysis-frame-ci.yml
+      - src/eph_income/analysis_frame.py
+      - src/eph_income/splits.py
+      - scripts/15_build_analysis_frame.py
+      - tests/test_analysis_frame.py
+      - tests/test_household_grouped_splits.py
+      - tests/test_split_integrity.py
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/eph-analysis-frame-ci.yml
+      - src/eph_income/analysis_frame.py
+      - src/eph_income/splits.py
+      - scripts/15_build_analysis_frame.py
+      - tests/test_analysis_frame.py
+      - tests/test_household_grouped_splits.py
+      - tests/test_split_integrity.py
+
+permissions:
+  contents: read
+
+jobs:
+  neutral-frame:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: src
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install bounded test dependencies
+        run: python -m pip install pandas numpy pytest ruff
+
+      - name: Lint W1 boundary
+        run: >-
+          ruff check
+          src/eph_income/analysis_frame.py
+          src/eph_income/splits.py
+          scripts/15_build_analysis_frame.py
+          tests/test_analysis_frame.py
+          tests/test_household_grouped_splits.py
+          tests/test_split_integrity.py
+
+      - name: Verify W1 boundary
+        run: >-
+          pytest -q
+          tests/test_analysis_frame.py
+          tests/test_household_grouped_splits.py
+          tests/test_split_integrity.py
