@@ -115,9 +115,7 @@ def _parse_quarter(period: dict[str, Any]) -> tuple[int, int]:
         raise IncomeStudyError("analysis_frame_period_year_invalid") from exc
     raw_quarter = period.get("quarter")
     if isinstance(raw_quarter, str):
-        value = raw_quarter.strip().upper()
-        if value.startswith("Q"):
-            value = value[1:]
+        value = raw_quarter.strip().upper().removeprefix("Q")
         try:
             quarter = int(value)
         except ValueError as exc:
@@ -294,12 +292,12 @@ def build_income_study_cohort(
         cohort_path = staging / "cohort.csv"
         cohort.to_csv(cohort_path, index=False, lineterminator="\n")
         qa = {
-            "source_persons": int(len(joined)),
+            "source_persons": len(joined),
             "finite_native_p47t": int(finite_native.sum()),
             "ingreso_equals_one": int(ingreso_ok.sum()),
             "positive_reference_p47t": int(positive_ok.sum()),
             "prop_not_missing": int(prop_ok.sum()),
-            "eligible_persons": int(len(cohort)),
+            "eligible_persons": len(cohort),
             "household_group_count": int(
                 cohort.loc[:, HOUSEHOLD_KEY].drop_duplicates().shape[0]
             ),
