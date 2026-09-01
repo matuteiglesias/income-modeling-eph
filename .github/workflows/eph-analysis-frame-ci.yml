@@ -6,9 +6,12 @@ on:
     paths:
       - .github/workflows/eph-analysis-frame-ci.yml
       - src/eph_income/analysis_frame.py
+      - src/eph_income/income_study.py
       - src/eph_income/splits.py
       - scripts/15_build_analysis_frame.py
+      - scripts/16_build_income_study_cohort.py
       - tests/test_analysis_frame.py
+      - tests/test_income_study.py
       - tests/test_household_grouped_splits.py
       - tests/test_split_integrity.py
   push:
@@ -17,9 +20,12 @@ on:
     paths:
       - .github/workflows/eph-analysis-frame-ci.yml
       - src/eph_income/analysis_frame.py
+      - src/eph_income/income_study.py
       - src/eph_income/splits.py
       - scripts/15_build_analysis_frame.py
+      - scripts/16_build_income_study_cohort.py
       - tests/test_analysis_frame.py
+      - tests/test_income_study.py
       - tests/test_household_grouped_splits.py
       - tests/test_split_integrity.py
 
@@ -52,9 +58,12 @@ jobs:
         run: >-
           ruff check
           src/eph_income/analysis_frame.py
+          src/eph_income/income_study.py
           src/eph_income/splits.py
           scripts/15_build_analysis_frame.py
+          scripts/16_build_income_study_cohort.py
           tests/test_analysis_frame.py
+          tests/test_income_study.py
           tests/test_household_grouped_splits.py
           tests/test_split_integrity.py
 
@@ -62,5 +71,6 @@ jobs:
         run: >-
           pytest -q
           tests/test_analysis_frame.py
+          tests/test_income_study.py
           tests/test_household_grouped_splits.py
           tests/test_split_integrity.py
