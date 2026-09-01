@@ -109,7 +109,7 @@ jobs:
         run: |
           set -eu
           python - <<'PY'
-          import csv, json, os
+          import json, os
           from pathlib import Path
 
           frame = Path(os.environ["FRAME_PATH"])
@@ -187,7 +187,7 @@ jobs:
             echo "Expected parent release: **$EXPECTED_RELEASE_ID**"
             echo
             if [ -n "${FRAME_PATH:-}" ] && [ -f "$FRAME_PATH/live-proof-summary.json" ]; then
-              echo "The exact upstream release was independently re-ingested and a neutral `research.eph-analysis-frame@1` was built from it."
+              echo 'The exact upstream release was independently re-ingested and a neutral research.eph-analysis-frame@1 was built from it.'
               echo
               echo '```json'
               cat "$FRAME_PATH/live-proof-summary.json"
