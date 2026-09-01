@@ -20,7 +20,7 @@ DEFAULT_HOUSEHOLD_GROUP_COLUMNS = ("CODUSU", "NRO_HOGAR")
 def get_split_path(experiment_config: Mapping[str, Any]) -> Path:
     data_config = experiment_config.get("data")
     if not isinstance(data_config, Mapping):
-        raise ValueError("Experiment config must define a 'data' mapping.")
+        raise TypeError("Experiment config must define a 'data' mapping.")
     return resolve_project_path(data_config.get("split_assignments"))
 
 
@@ -56,8 +56,8 @@ def _random_person_assignments(
     rng.shuffle(shuffled)
 
     n_rows = len(shuffled)
-    train_end = int(round(n_rows * train_size))
-    test_end = min(train_end + int(round(n_rows * test_size)), n_rows)
+    train_end = round(n_rows * train_size)
+    test_end = min(train_end + round(n_rows * test_size), n_rows)
 
     assignments = pd.DataFrame({ROW_ID_COLUMN: shuffled})
     assignments["split"] = "validation"
@@ -193,7 +193,7 @@ def load_or_create_split_assignments(
     split_path = get_split_path(experiment_config)
     split_config = experiment_config.get("split", {})
     if not isinstance(split_config, Mapping):
-        raise ValueError("Experiment config 'split' section must be a mapping.")
+        raise TypeError("Experiment config 'split' section must be a mapping.")
     strategy = str(split_config.get("strategy", RANDOM_PERSON_STRATEGY))
     group_columns = _group_columns(split_config) if strategy == HOUSEHOLD_GROUPED_STRATEGY else None
 
