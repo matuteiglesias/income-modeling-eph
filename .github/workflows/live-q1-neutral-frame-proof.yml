@@ -1,0 +1,213 @@
+name: Live Q1 neutral EPH frame proof
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/live-q1-neutral-frame-proof.yml
+      - src/eph_income/analysis_frame.py
+      - src/eph_income/eph_release_intake.py
+      - scripts/14_eph_release_intake.py
+      - scripts/15_build_analysis_frame.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-q1-neutral-eph-frame-proof
+  cancel-in-progress: false
+
+jobs:
+  exact-parent-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: src
+      RELEASE_TAG: candidate-eph-2026-q1-beff9b8299d5
+      EXPECTED_RELEASE_ID: eph-2026-q1-beff9b8299d5
+    steps:
+      - name: Check out consumer repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download exact discovery envelope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/eph-upstream"
+          gh release download "$RELEASE_TAG" \
+            --repo matuteiglesias/microdatos-EPH-INDEC \
+            -p discovery.json \
+            -D "$RUNNER_TEMP/eph-upstream"
+
+      - name: Resolve and verify declared release asset
+        run: |
+          set -eu
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "eph-upstream" / "discovery.json"
+          discovery = json.loads(path.read_text(encoding="utf-8"))
+          if discovery.get("schema") != "ecosystem-release-discovery/v1":
+              raise SystemExit("unexpected discovery schema")
+          if discovery.get("producer") != "matuteiglesias/microdatos-EPH-INDEC":
+              raise SystemExit("unexpected producer")
+          if discovery.get("artifact_type") != "publicdata.eph-microdata@1":
+              raise SystemExit("unexpected artifact type")
+          if discovery.get("release_id") != os.environ["EXPECTED_RELEASE_ID"]:
+              raise SystemExit("unexpected exact release id")
+          github_release = discovery.get("github_release") or {}
+          if github_release.get("tag") != os.environ["RELEASE_TAG"]:
+              raise SystemExit("discovery tag mismatch")
+          asset = github_release.get("asset_name")
+          if not asset:
+              raise SystemExit("discovery has no declared asset")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:
+              stream.write(f"EPH_ASSET={asset}\n")
+          PY
+
+      - name: Download exact declared release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          gh release download "$RELEASE_TAG" \
+            --repo matuteiglesias/microdatos-EPH-INDEC \
+            -p "$EPH_ASSET" \
+            -D "$RUNNER_TEMP/eph-upstream"
+
+      - name: Verify and pin exact upstream parent
+        run: |
+          set -eu
+          python scripts/14_eph_release_intake.py \
+            --discovery "$RUNNER_TEMP/eph-upstream/discovery.json" \
+            --asset "$RUNNER_TEMP/eph-upstream/$EPH_ASSET" \
+            --output-root "$RUNNER_TEMP/eph-parents" \
+            --selection-mode reproduction \
+            --transport-tag "$RELEASE_TAG" \
+            > "$RUNNER_TEMP/eph-intake-result.json"
+          test -f "$RUNNER_TEMP/eph-parents/$EXPECTED_RELEASE_ID/parent_lock.json"
+
+      - name: Build neutral frame from exact pinned parent
+        run: |
+          set -eu
+          python scripts/15_build_analysis_frame.py \
+            --parent-root "$RUNNER_TEMP/eph-parents/$EXPECTED_RELEASE_ID" \
+            --output-root "$RUNNER_TEMP/eph-analysis-frames" \
+            > "$RUNNER_TEMP/analysis-frame-path.txt"
+          FRAME_PATH=$(tail -n 1 "$RUNNER_TEMP/analysis-frame-path.txt")
+          test -d "$FRAME_PATH"
+          echo "FRAME_PATH=$FRAME_PATH" >> "$GITHUB_ENV"
+
+      - name: Validate live neutral-frame invariants
+        run: |
+          set -eu
+          python - <<'PY'
+          import csv, json, os
+          from pathlib import Path
+
+          frame = Path(os.environ["FRAME_PATH"])
+          manifest = json.loads((frame / "manifest.json").read_text(encoding="utf-8"))
+          qa = json.loads((frame / "qa.json").read_text(encoding="utf-8"))
+
+          if manifest.get("contract") != "research.eph-analysis-frame@1":
+              raise SystemExit("unexpected neutral-frame contract")
+          if (manifest.get("parent") or {}).get("release_id") != os.environ["EXPECTED_RELEASE_ID"]:
+              raise SystemExit("neutral frame is not bound to the exact requested parent")
+          if manifest.get("identity", {}).get("household_key") != ["CODUSU", "NRO_HOGAR"]:
+              raise SystemExit("household identity drift")
+          if manifest.get("identity", {}).get("person_key") != ["CODUSU", "NRO_HOGAR", "COMPONENTE"]:
+              raise SystemExit("person identity drift")
+          policy = manifest.get("field_policy") or {}
+          if policy.get("survey_weights_applied") is not False:
+              raise SystemExit("survey weights were applied")
+          if policy.get("census_shaped_aliases_added") is not False:
+              raise SystemExit("Census-shaped aliases leaked into neutral frame")
+          if policy.get("target_or_cohort_fields_added") is not False:
+              raise SystemExit("target/cohort fields leaked into neutral frame")
+          if policy.get("target_derived_geography_ranks_added") is not False:
+              raise SystemExit("target-derived geography ranks leaked into neutral frame")
+          if manifest.get("monetary_lineage", {}).get("deflation_or_rebasing_applied") is not False:
+              raise SystemExit("hidden monetary transform detected")
+          if qa.get("person_to_household_cardinality") != "many_to_one_validated":
+              raise SystemExit("person-household cardinality was not validated")
+          if qa.get("orphan_person_households") != 0:
+              raise SystemExit("orphan person household detected")
+
+          person_fields = policy.get("person_columns") or []
+          household_fields = policy.get("household_columns") or []
+          forbidden = {"logP47T", "AGLO_rk", "Reg_rk"}
+          if forbidden & (set(person_fields) | set(household_fields)):
+              raise SystemExit("forbidden derived fields present")
+          for required in ("CODUSU", "NRO_HOGAR", "COMPONENTE"):
+              if required not in person_fields:
+                  raise SystemExit(f"missing native person identity field: {required}")
+          for required in ("CODUSU", "NRO_HOGAR"):
+              if required not in household_fields:
+                  raise SystemExit(f"missing native household identity field: {required}")
+
+          survey = qa.get("survey_design_fields") or {}
+          preserved = set(survey.get("household", [])) | set(survey.get("individual", []))
+          if "PONDERA" not in preserved:
+              raise SystemExit("PONDERA was not preserved on the live frame")
+
+          summary = {
+              "contract": manifest["contract"],
+              "release_id": manifest["release_id"],
+              "parent_release_id": manifest["parent"]["release_id"],
+              "period": manifest["parent"].get("period"),
+              "households": qa["households"],
+              "persons": qa["persons"],
+              "household_column_count": len(household_fields),
+              "person_column_count": len(person_fields),
+              "survey_design_fields_preserved": sorted(preserved),
+              "weights_applied": policy["survey_weights_applied"],
+              "monetary_transform_applied": manifest["monetary_lineage"]["deflation_or_rebasing_applied"],
+              "person_columns": person_fields,
+              "household_columns": household_fields,
+          }
+          output = frame / "live-proof-summary.json"
+          output.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print(json.dumps(summary, indent=2, sort_keys=True))
+          PY
+
+      - name: Summarize live proof
+        if: always()
+        run: |
+          {
+            echo "## Exact Q1 neutral EPH frame proof"
+            echo
+            echo "Requested producer tag: **$RELEASE_TAG**"
+            echo "Expected parent release: **$EXPECTED_RELEASE_ID**"
+            echo
+            if [ -n "${FRAME_PATH:-}" ] && [ -f "$FRAME_PATH/live-proof-summary.json" ]; then
+              echo "The exact upstream release was independently re-ingested and a neutral `research.eph-analysis-frame@1` was built from it."
+              echo
+              echo '```json'
+              cat "$FRAME_PATH/live-proof-summary.json"
+              echo '```'
+            else
+              echo "The exact-parent neutral-frame proof did not complete; inspect the failed step rather than treating this as a scientific result."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve live frame evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-q1-neutral-eph-frame
+          path: |
+            ${{ runner.temp }}/eph-upstream/discovery.json
+            ${{ runner.temp }}/eph-intake-result.json
+            ${{ runner.temp }}/eph-parents/${{ env.EXPECTED_RELEASE_ID }}/parent_lock.json
+            ${{ runner.temp }}/eph-analysis-frames/*/manifest.json
+            ${{ runner.temp }}/eph-analysis-frames/*/qa.json
+            ${{ runner.temp }}/eph-analysis-frames/*/live-proof-summary.json
+          if-no-files-found: warn
+          retention-days: 14
