@@ -1,6 +1,7 @@
 name: EPH analysis frame CI
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - .github/workflows/eph-analysis-frame-ci.yml
@@ -45,7 +46,7 @@ jobs:
           cache: pip
 
       - name: Install bounded test dependencies
-        run: python -m pip install pandas numpy pytest ruff
+        run: python -m pip install pandas numpy pyyaml pytest ruff
 
       - name: Lint W1 boundary
         run: >-
