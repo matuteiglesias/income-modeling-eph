@@ -5,8 +5,11 @@ on:
     paths:
       - "src/eph_income/labor_bridge.py"
       - "src/eph_income/dataset.py"
+      - "src/eph_income/entity_identity.py"
       - "tests/test_labor_bridge.py"
       - "tests/test_source_identity_lineage.py"
+      - "tests/test_entity_identity.py"
+      - "tests/test_income_study.py"
       - "tests/test_feature_contract.py"
       - "configs/labor_bridge_feature_contract.yaml"
       - "configs/feature_contract_labor_bridge_shadow.yaml"
@@ -29,6 +32,6 @@ jobs:
       - name: Install project and test dependencies
         run: python -m pip install -e '.[dev]'
       - name: Labor bridge and source-identity unit tests
-        run: pytest -q tests/test_labor_bridge.py tests/test_source_identity_lineage.py tests/test_feature_contract.py
+        run: pytest -q tests/test_labor_bridge.py tests/test_source_identity_lineage.py tests/test_entity_identity.py tests/test_feature_contract.py tests/test_income_study.py
       - name: Compile entrypoints
-        run: python -m py_compile src/eph_income/labor_bridge.py src/eph_income/dataset.py scripts/14_labor_bridge_fit.py scripts/15_labor_bridge_score_census.py scripts/16_build_labor_bridge_shadow_frame.py scripts/17_audit_legacy_identity_gap.py
+        run: python -m py_compile src/eph_income/labor_bridge.py src/eph_income/dataset.py src/eph_income/entity_identity.py scripts/14_labor_bridge_fit.py scripts/15_labor_bridge_score_census.py scripts/16_build_labor_bridge_shadow_frame.py scripts/17_audit_legacy_identity_gap.py
