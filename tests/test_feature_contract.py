@@ -31,7 +31,7 @@ def test_forbidden_predictor_groups_flatten_correctly() -> None:
 
     assert {"P47T", "logP47T", "P21", "CODUSU"}.issubset(forbidden)
     assert {"Q", "source_year", "INGRESO", "T_VI", "logTOT_P12", "INGRESO_SBS"}.issubset(forbidden)
-    assert contract["forbidden_predictors"]["identifiers"] == ["CODUSU"]
+    assert contract["forbidden_predictors"]["identifiers"] == ["CODUSU", "NRO_HOGAR", "COMPONENTE"]
     assert contract["forbidden_predictors"]["temporal_derived"] == ["Q", "source_year"]
     assert contract["forbidden_predictors"]["sample_indicators"] == ["INGRESO"]
 
@@ -57,11 +57,12 @@ def test_assert_no_forbidden_predictors_rejects_income_component_p21() -> None:
         assert_no_forbidden_predictors(["P21", "CH04"], forbidden)
 
 
-def test_assert_no_forbidden_predictors_rejects_identifier_codusu() -> None:
+@pytest.mark.parametrize("identifier", ["CODUSU", "NRO_HOGAR", "COMPONENTE"])
+def test_assert_no_forbidden_predictors_rejects_source_identifiers(identifier) -> None:
     forbidden = get_forbidden_predictors(load_feature_contract())
 
-    with pytest.raises(ValueError, match="CODUSU"):
-        assert_no_forbidden_predictors(["CODUSU", "CH04"], forbidden)
+    with pytest.raises(ValueError, match=identifier):
+        assert_no_forbidden_predictors([identifier, "CH04"], forbidden)
 
 
 def test_assert_no_forbidden_predictors_lists_all_offending_columns() -> None:
