@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
-import pandas as pd
 
 EPH_HOUSEHOLD_KEY = ("CODUSU", "NRO_HOGAR")
 EPH_PERSON_KEY = ("CODUSU", "NRO_HOGAR", "COMPONENTE")
@@ -44,18 +43,20 @@ class EntityIdentityAudit:
     missing_rows: int
 
 
-def _require(frame: pd.DataFrame, columns: Sequence[str], context: str) -> None:
+def _require(frame: "pd.DataFrame", columns: Sequence[str], context: str) -> None:
     missing = sorted(set(columns) - set(frame.columns))
     if missing:
         raise EntityIdentityError(f"{context} missing identity columns: {missing}")
 
 
 def audit_unique_key(
-    frame: pd.DataFrame,
+    frame: "pd.DataFrame",
     key: Sequence[str],
     *,
     context: str,
 ) -> EntityIdentityAudit:
+    import pandas as pd  # lazy: neutral frame producers only need identity constants
+
     key = tuple(key)
     _require(frame, key, context)
     values = frame.loc[:, list(key)]
@@ -76,26 +77,26 @@ def audit_unique_key(
 
 
 def validate_eph_person_identity(
-    frame: pd.DataFrame, *, require_period: bool, context: str
+    frame: "pd.DataFrame", *, require_period: bool, context: str
 ) -> EntityIdentityAudit:
     key = EPH_GLOBAL_PERSON_KEY if require_period else EPH_PERSON_KEY
     return audit_unique_key(frame, key, context=context)
 
 
 def validate_eph_household_identity(
-    frame: pd.DataFrame, *, require_period: bool, context: str
+    frame: "pd.DataFrame", *, require_period: bool, context: str
 ) -> EntityIdentityAudit:
     key = EPH_GLOBAL_HOUSEHOLD_KEY if require_period else EPH_HOUSEHOLD_KEY
     return audit_unique_key(frame, key, context=context)
 
 
-def census_identity_columns(frame: pd.DataFrame) -> list[str]:
+def census_identity_columns(frame: "pd.DataFrame") -> list[str]:
     """Return recognized Census identity columns in canonical hierarchy order."""
     return [column for column in CENSUS_IDENTITY_COLUMNS if column in frame.columns]
 
 
 def validate_census_person_identity(
-    frame: pd.DataFrame, *, context: str
+    frame: "pd.DataFrame", *, context: str
 ) -> dict[str, object]:
     """Validate Census person identity and available parent relationships."""
     _require(frame, CENSUS_SAMPLE_PERSON_KEY, context)
