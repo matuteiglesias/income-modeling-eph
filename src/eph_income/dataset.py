@@ -25,7 +25,12 @@ from eph_income.contracts import (
     validate_target_contract,
 )
 from eph_income.features import apply_second_stage_features
-from eph_income.entity_identity import EPH_GLOBAL_PERSON_KEY
+from eph_income.entity_identity import (
+    EPH_GLOBAL_HOUSEHOLD_KEY,
+    EPH_GLOBAL_PERSON_KEY,
+    EPH_HOUSEHOLD_KEY,
+    EPH_PERSON_KEY,
+)
 
 KNOWN_2024_2025_COLUMN_DROPS = (
     "V2_01_M",
@@ -218,6 +223,11 @@ def build_source_identity_sidecar(frame: pd.DataFrame) -> tuple[pd.DataFrame | N
         "present_columns": present,
         "missing_columns": missing,
         "exact_source_identity_available": not missing,
+        "within_period_household_key": list(EPH_HOUSEHOLD_KEY),
+        "within_period_person_key": list(EPH_PERSON_KEY),
+        "household_key": list(EPH_GLOBAL_HOUSEHOLD_KEY),
+        "person_key": list(EPH_GLOBAL_PERSON_KEY),
+        "period_qualified": True,
     }
     if missing:
         status["status"] = "unavailable"
