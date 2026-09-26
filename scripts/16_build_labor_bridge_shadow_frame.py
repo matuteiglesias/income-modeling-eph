@@ -30,6 +30,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frame", type=Path, required=True)
     parser.add_argument("--probabilities", type=Path, required=True)
+    parser.add_argument(
+        "--identity-sidecar",
+        type=Path,
+        help=(
+            "Exact modeling row_id -> EPH source identity sidecar. Required when "
+            "the estimator-facing frame intentionally excludes source identifiers."
+        ),
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--key-columns",
@@ -40,9 +48,48 @@ def main() -> int:
 
     frame = load_frame(args.frame)
     probabilities = load_frame(args.probabilities)
+
+    missing_frame_keys = [column for column in args.key_columns if column not in frame.columns]
+    temporary_keys: list[str] = []
+    if missing_frame_keys:
+        if args.identity_sidecar is None:
+            raise ValueError(
+                "income frame lacks exact source join keys "
+                f"{missing_frame_keys}; provide --identity-sidecar. "
+                "Row-order and fuzzy joins are forbidden."
+            )
+        identity = load_frame(args.identity_sidecar)
+        required_identity = {"row_id", *args.key_columns}
+        missing_identity = sorted(required_identity - set(identity.columns))
+        if missing_identity:
+            raise ValueError(
+                f"identity sidecar missing required columns: {missing_identity}"
+            )
+        if "row_id" not in frame.columns:
+            raise ValueError("income frame lacks row_id required for identity sidecar")
+        if frame["row_id"].duplicated().any() or identity["row_id"].duplicated().any():
+            raise ValueError("row_id must be unique in frame and identity sidecar")
+        left = set(frame["row_id"].astype(str))
+        right = set(identity["row_id"].astype(str))
+        if left != right:
+            raise ValueError(
+                "identity sidecar row_id coverage mismatch: "
+                f"missing={len(left-right)} extra={len(right-left)}"
+            )
+        temporary_keys = [column for column in args.key_columns if column not in frame.columns]
+        frame = frame.merge(
+            identity[["row_id", *temporary_keys]],
+            on="row_id",
+            how="left",
+            validate="one_to_one",
+            sort=False,
+        )
+
     joined = attach_probability_features(
         frame, probabilities, key_columns=args.key_columns
     )
+    if temporary_keys:
+        joined = joined.drop(columns=temporary_keys)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     joined.to_parquet(args.output, index=False)
     print(json.dumps({"output": str(args.output), "rows": len(joined)}))
