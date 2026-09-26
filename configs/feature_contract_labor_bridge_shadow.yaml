@@ -1,0 +1,128 @@
+target:
+  name: logP47T
+  source: P47T
+  transform: log10
+inclusion:
+  INGRESO: 1
+  require_positive:
+    - P47T
+  require_not_missing:
+    - PROP
+forbidden_predictors:
+  identifiers:
+    - CODUSU
+  temporal_derived:
+    - Q
+    - source_year
+  sample_indicators:
+    - INGRESO
+  target:
+    - P47T
+    - logP47T
+  income_components:
+    - P21
+    - T_VI
+    - V12_M
+    - V2_M
+    - V3_M
+    - V5_M
+    - TOT_P12
+    - PP08D1
+  transformed_income_components:
+    - logP21
+    - logT_VI
+    - logV12_M
+    - logV2_M
+    - logV3_M
+    - logV5_M
+    - logTOT_P12
+    - logPP08D1
+  income_indicators:
+    - INGRESO_NLB
+    - INGRESO_JUB
+    - INGRESO_SBS
+  observed_labor:
+    - ESTADO
+    - CONDACT
+    - CAT_OCUP
+    - CAT_INAC
+    - PP07G_59
+    - INTENSI
+    - PP03G
+    - PP03H
+    - PP03I
+    - PP03J
+temporal_features:
+  include:
+    - ANO4
+    - TRIMESTRE
+  decision: include_in_baseline
+feature_blocks:
+  demographic:
+    categorical:
+      - P02
+      - CH07
+    numeric:
+      - P03
+  education:
+    categorical:
+      - P09
+      - P10
+      - Max_Nivel_Educativo
+  labor_bridge:
+    numeric:
+      - labor_p_active
+      - labor_p_employed
+      - labor_p_unemployed
+  housing_household:
+    categorical:
+      - V01
+      - H05
+      - H06
+      - H07
+      - H08
+      - H09
+      - PROP
+      - H14
+      - H13
+      - sanitacion_nivel
+    numeric:
+      - IX_TOT
+  household_pyramid:
+    numeric:
+      - Personas_0-3
+      - Personas_4-8
+      - Personas_9-12
+      - Personas_13-17
+      - Personas_18-24
+      - Personas_25-64
+      - Personas_65+
+  geography_raw:
+    categorical:
+      - Region
+      - AGLOMERADO
+  temporal_raw:
+    categorical:
+      - ANO4
+      - TRIMESTRE
+  geo_ranks:
+    numeric:
+      - AGLO_rk
+      - Reg_rk
+baseline_feature_blocks:
+  - demographic
+  - education
+  - labor_bridge
+  - housing_household
+excluded_by_default:
+  - household_pyramid
+  - geography_raw
+  - geo_ranks
+  - temporal_raw
+sensitivity_feature_blocks:
+  - household_pyramid
+  - geo_ranks
+notes:
+  - Shadow contract replaces observed labor labels with OOF labor probabilities.
+  - Raw labor labels remain available for diagnostics but are forbidden as predictors.
+  - No production flagship is changed by this contract.
