@@ -11,6 +11,8 @@ inclusion:
 forbidden_predictors:
   identifiers:
   - CODUSU
+  - NRO_HOGAR
+  - COMPONENTE
   temporal_derived:
   - Q
   - source_year
