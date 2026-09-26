@@ -129,3 +129,34 @@ at least:
 
 Only after that comparison is reviewed should this contract be considered for
 production or for 2022/23 predictive backcasting.
+
+
+## Run the income shadow experiment
+
+The experiment runner does not infer `baseline_feature_blocks` automatically.
+Use the dedicated shadow experiment config so the final feature view contains
+only `demographic + education + labor_bridge + housing_household`. This makes
+the observed labor labels unavailable to the estimator even if they remain in
+the diagnostic dataset.
+
+Build the shadow processed dataset at the path expected by the config:
+
+```bash
+python scripts/16_build_labor_bridge_shadow_frame.py \
+  --frame data/processed/modeling_dataset.parquet \
+  --probabilities /home/matias/data/<labor-release>/eph_labor_probabilities_oof.parquet \
+  --output data/processed/modeling_dataset_labor_bridge_shadow.parquet
+```
+
+Then use the ordinary governed experiment runner:
+
+```bash
+python scripts/02_run_baseline_experiment.py \
+  --config configs/experiment_labor_bridge_shadow.yaml \
+  --feature-contract configs/feature_contract_labor_bridge_shadow.yaml \
+  --allow-full-run
+```
+
+The existing split assignments remain valid because the shadow-frame join is
+one-to-one and row-preserving. Do not use `--freeze-estimator`; this remains a
+shadow comparison against the frozen flagship.
