@@ -1,0 +1,100 @@
+experiment:
+  id: baseline_income_prediction_labor_bridge_shadow_v1
+  random_seed: 42
+
+runtime:
+  mode: full
+  sample_n: null
+  allow_full_run: false
+
+data:
+  input_files:
+    "2022": data/annual_preprocessed_inputs/EPHARG_annual_input_22.csv
+    "2023": data/annual_preprocessed_inputs/EPHARG_annual_input_23.csv
+    "2024": data/annual_preprocessed_inputs/EPHARG_annual_input_24.csv
+    "2025": data/annual_preprocessed_inputs/EPHARG_annual_input_25.csv
+  processed_dataset: data/processed/modeling_dataset_labor_bridge_shadow.parquet
+  split_assignments: data/processed/split_assignments.csv
+
+feature_view:
+  name: labor_bridge_shadow
+  include_blocks:
+    - demographic
+    - education
+    - labor_bridge
+    - housing_household
+
+split:
+  train_size: 0.70
+  test_size: 0.20
+  validation_size: 0.10
+  strategy: random_individual
+  random_state: 42
+
+cv:
+  folds: 3
+  scoring: r2
+
+diagnostics:
+  enabled: true
+  profile: thesis_core
+  standard:
+    residual_summary: true
+    error_by_income_decile: true
+    prediction_distribution_summary: true
+    model_pairwise_error_comparison: true
+    metric_gaps: true
+  plots:
+    observed_vs_predicted: true
+    prediction_distribution: true
+    residual_distribution: true
+    mae_by_income_decile: true
+    mean_residual_by_income_decile: true
+  distribution:
+    compression_summary: true
+    decile_tail_summary: true
+
+models:
+  linear_regression:
+    enabled: true
+    grid:
+      reg__fit_intercept: [true]
+
+  ridge:
+    enabled: true
+    grid:
+      reg__alpha: [2, 5, 10]
+      reg__fit_intercept: [true]
+
+  lasso:
+    enabled: true
+    grid:
+      reg__alpha: [0.0025, 0.005, 0.0075]
+      reg__fit_intercept: [true]
+
+  hist_gradient_boosting:
+    enabled: true
+    grid:
+      reg__max_iter: [100, 200]
+      reg__learning_rate: [0.25, 0.1, 0.05]
+      reg__max_leaf_nodes: [200, 400]
+      reg__min_samples_leaf: [15, 30]
+      reg__l2_regularization: [0]
+
+  mlp:
+    enabled: true
+    grid:
+      reg__hidden_layer_sizes:
+        - [64, 32]
+        - [128, 64]
+        - [64, 64, 32]
+        - [128, 128]
+      reg__batch_size: [64, 128]
+      reg__max_iter: [100, 200]
+
+artifacts:
+  training_frame_sample_n: 10
+
+outputs:
+  model_comparison: reports/tables/model_comparison.csv
+  experiment_card: reports/experiment_cards/baseline_income_prediction.json

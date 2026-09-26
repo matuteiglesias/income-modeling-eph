@@ -1,0 +1,34 @@
+schema_version: research.labor-bridge-feature-contract/v1
+purpose: shared pre-labor covariates available to both EPH and harmonized Census
+categorical:
+  - P02
+  - P05
+  - P09
+  - P10
+  - V01
+  - H05
+  - H06
+  - H07
+  - H08
+  - H09
+  - H13
+  - H14
+  - PROP
+numeric:
+  - P03
+  - IX_TOT
+forbidden_observed_labor:
+  - ESTADO
+  - CONDACT
+  - CAT_OCUP
+  - CAT_INAC
+  - PP07G_59
+  - INTENSI
+  - PP03G
+  - PP03H
+  - PP03I
+  - PP03J
+notes:
+  - Geography is intentionally excluded from the first predictive bridge; official domain calibration handles geography downstream.
+  - Observed labor-state variables are targets/diagnostics only and must never be predictors.
+  - The first implementation compares logistic and HistGradientBoosting classifiers with identical shared covariates.
