@@ -1,6 +1,6 @@
 # Labor bridge shadow — L2 model and L4 welfare handoff
 
-Status: software-ready; real EPH/Census runs remain local.
+Status: L1/L2/L3 real-data commissioning is active; L4 requires exact source-person identity.
 
 This is a shadow path. It does not change the frozen income flagship or authorize
 2022/23 predictive welfare.
@@ -107,16 +107,56 @@ labor_p_unemployed
 
 and explicitly forbids observed labor variables as predictors.
 
-Attach an exact OOF probability release to the corresponding EPH modeling frame:
+Attach an exact OOF probability release to the corresponding EPH modeling frame.
+
+Source-backed modeling builds publish `modeling_identity.parquet` as a
+non-predictor sidecar keyed by `row_id`. The sidecar carries the exact source
+person-period key:
+
+```text
+CODUSU
+NRO_HOGAR
+COMPONENTE
+ANO4
+TRIMESTRE
+```
+
+Use it when identifiers are intentionally absent from the estimator-facing frame:
 
 ```bash
 python scripts/16_build_labor_bridge_shadow_frame.py \
-  --frame /home/matias/data/<income-model-frame>.parquet \
+  --frame data/processed/modeling_dataset.parquet \
+  --identity-sidecar data/processed/modeling_identity.parquet \
   --probabilities /home/matias/data/<labor-release>/eph_labor_probabilities_oof.parquet \
-  --output /home/matias/data/<income-model-frame>-labor-shadow.parquet
+  --output data/processed/modeling_dataset_labor_bridge_shadow.parquet
 ```
 
-The join fails unless person-period coverage is exact.
+The join fails unless both `row_id` coverage and person-period coverage are exact.
+Row-order, nearest-feature, and fuzzy joins are forbidden.
+
+### Legacy annual identity limitation
+
+The tracked `EPHARG_annual_input_22..25.csv` artifacts predate this source
+identity boundary. Their manifests include `CODUSU, ANO4, TRIMESTRE` but not
+`NRO_HOGAR` or `COMPONENTE`. Therefore they cannot produce an exact identity
+sidecar and cannot by themselves authorize the L4 OOF attachment.
+
+The historical producer also joined household/person rows on the reduced key
+`CODUSU, ANO4, TRIMESTRE, AGLOMERADO`. Before using the legacy artifact as a
+regression oracle, quantify the raw EPH surface where one such reduced key spans
+multiple true `NRO_HOGAR` values:
+
+```bash
+python scripts/17_audit_legacy_identity_gap.py \
+  --individual /path/to/usu_individual_t124.txt \
+  --individual /path/to/usu_individual_t224.txt \
+  --individual /path/to/usu_individual_t324.txt \
+  --individual /path/to/usu_individual_t424.txt \
+  --output-json data/legacy-identity-gap-2024.json \
+  --output-ambiguous-csv data/legacy-identity-gap-2024-ambiguous.csv
+```
+
+Do not reconstruct `NRO_HOGAR` or `COMPONENTE` from row order.
 
 The shadow comparison must keep the current production P1-R untouched and report
 at least:
@@ -139,11 +179,13 @@ only `demographic + education + labor_bridge + housing_household`. This makes
 the observed labor labels unavailable to the estimator even if they remain in
 the diagnostic dataset.
 
-Build the shadow processed dataset at the path expected by the config:
+Build the shadow processed dataset only after the processed frame has an exact
+source identity sidecar:
 
 ```bash
 python scripts/16_build_labor_bridge_shadow_frame.py \
   --frame data/processed/modeling_dataset.parquet \
+  --identity-sidecar data/processed/modeling_identity.parquet \
   --probabilities /home/matias/data/<labor-release>/eph_labor_probabilities_oof.parquet \
   --output data/processed/modeling_dataset_labor_bridge_shadow.parquet
 ```
