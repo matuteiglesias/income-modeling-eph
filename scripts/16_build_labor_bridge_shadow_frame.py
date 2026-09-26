@@ -13,6 +13,10 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
+from eph_income.entity_identity import (  # noqa: E402
+    EPH_GLOBAL_PERSON_KEY,
+    validate_eph_person_identity,
+)
 from eph_income.labor_bridge import attach_probability_features  # noqa: E402
 
 
@@ -42,7 +46,7 @@ def main() -> int:
     parser.add_argument(
         "--key-columns",
         type=csv_list,
-        default=csv_list("CODUSU,NRO_HOGAR,COMPONENTE,ANO4,TRIMESTRE"),
+        default=list(EPH_GLOBAL_PERSON_KEY),
     )
     args = parser.parse_args()
 
@@ -76,6 +80,26 @@ def main() -> int:
                 "identity sidecar row_id coverage mismatch: "
                 f"missing={len(left-right)} extra={len(right-left)}"
             )
+        identity = identity[["row_id", *args.key_columns]].copy()
+        validate_eph_person_identity(
+            identity, require_period=True, context="modeling identity sidecar"
+        )
+        existing_keys = [column for column in args.key_columns if column in frame.columns]
+        if existing_keys:
+            check = frame[["row_id", *existing_keys]].merge(
+                identity[["row_id", *existing_keys]],
+                on="row_id",
+                how="inner",
+                suffixes=("_frame", "_identity"),
+                validate="one_to_one",
+            )
+            for column in existing_keys:
+                if not check[f"{column}_frame"].astype(str).equals(
+                    check[f"{column}_identity"].astype(str)
+                ):
+                    raise ValueError(
+                        f"income frame identity column disagrees with sidecar: {column}"
+                    )
         temporary_keys = [column for column in args.key_columns if column not in frame.columns]
         frame = frame.merge(
             identity[["row_id", *temporary_keys]],
@@ -85,6 +109,9 @@ def main() -> int:
             sort=False,
         )
 
+    validate_eph_person_identity(
+        frame, require_period=True, context="L4 income frame"
+    )
     joined = attach_probability_features(
         frame, probabilities, key_columns=args.key_columns
     )
