@@ -18,6 +18,10 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
+from eph_income.entity_identity import (  # noqa: E402
+    EPH_GLOBAL_PERSON_KEY,
+    validate_eph_person_identity,
+)
 from eph_income.labor_bridge import (  # noqa: E402
     LaborFeatureContract,
     TwoStageLaborBridge,
@@ -78,6 +82,9 @@ def run(
         raise ValueError(f"input missing output identity columns: {missing_keys}")
     release = frame.loc[oof.index, key_columns].copy()
     release = release.join(oof)
+    identity_audit = validate_eph_person_identity(
+        release, require_period=True, context="EPH labor OOF release"
+    )
     output.mkdir(parents=True, exist_ok=False)
 
     probabilities_path = output / "eph_labor_probabilities_oof.parquet"
@@ -139,6 +146,12 @@ def run(
         "classifier_kind": classifier_kind,
         "weight_mode": weight_mode,
         "cv": cv,
+        "identity": {
+            "person_key": list(EPH_GLOBAL_PERSON_KEY),
+            "rows": identity_audit.rows,
+            "unique": identity_audit.unique,
+            "period_qualified": True,
+        },
         "key_columns": key_columns,
         "group_columns": group_columns,
         "artifacts": {
@@ -190,7 +203,7 @@ def parser() -> argparse.ArgumentParser:
     out.add_argument(
         "--key-columns",
         type=csv_list,
-        default=csv_list("CODUSU,NRO_HOGAR,COMPONENTE,ANO4,TRIMESTRE"),
+        default=list(EPH_GLOBAL_PERSON_KEY),
     )
     out.add_argument(
         "--group-columns",

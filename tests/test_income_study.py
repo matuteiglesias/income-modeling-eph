@@ -87,13 +87,26 @@ def test_income_study_rebuilds_historical_cohort_from_neutral_frame(tmp_path):
     qa = json.loads((release / "qa.json").read_text(encoding="utf-8"))
 
     assert manifest["contract"] == "research.eph-income-study-cohort@1"
-    assert manifest["identity"]["person_key"] == ["CODUSU", "NRO_HOGAR", "COMPONENTE"]
-    assert manifest["identity"]["household_group_key"] == ["CODUSU", "NRO_HOGAR"]
+    assert manifest["identity"]["within_period_person_key"] == ["CODUSU", "NRO_HOGAR", "COMPONENTE"]
+    assert manifest["identity"]["within_period_household_key"] == ["CODUSU", "NRO_HOGAR"]
+    assert manifest["identity"]["person_key"] == [
+        "ANO4", "TRIMESTRE", "CODUSU", "NRO_HOGAR", "COMPONENTE"
+    ]
+    assert manifest["identity"]["household_group_key"] == [
+        "ANO4", "TRIMESTRE", "CODUSU", "NRO_HOGAR"
+    ]
+    assert manifest["identity"]["period_qualified"] is True
     assert manifest["weight_policy"]["claim_boundary"] == "sample_conditional"
     assert manifest["weight_policy"]["fitting"] is None
     assert manifest["weight_policy"]["evaluation"] is None
     assert manifest["weight_policy"]["calibration"] is None
 
+    assert cohort[
+        ["ANO4", "TRIMESTRE", "CODUSU", "NRO_HOGAR", "COMPONENTE"]
+    ].values.tolist() == [
+        [2026, 1, "A", 1, 1],
+        [2026, 1, "A", 2, 1],
+    ]
     assert cohort[["CODUSU", "NRO_HOGAR", "COMPONENTE"]].values.tolist() == [
         ["A", 1, 1],
         ["A", 2, 1],

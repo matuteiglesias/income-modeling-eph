@@ -25,6 +25,12 @@ from eph_income.contracts import (
     validate_target_contract,
 )
 from eph_income.features import apply_second_stage_features
+from eph_income.entity_identity import (
+    EPH_GLOBAL_HOUSEHOLD_KEY,
+    EPH_GLOBAL_PERSON_KEY,
+    EPH_HOUSEHOLD_KEY,
+    EPH_PERSON_KEY,
+)
 
 KNOWN_2024_2025_COLUMN_DROPS = (
     "V2_01_M",
@@ -35,6 +41,7 @@ KNOWN_2024_2025_COLUMN_DROPS = (
     "V5_03_M",
 )
 ROW_ID_COLUMN = "row_id"
+SOURCE_PERSON_IDENTITY = EPH_GLOBAL_PERSON_KEY
 
 
 def resolve_project_path(path: str | Path) -> Path:
@@ -50,6 +57,12 @@ def get_metadata_path(processed_dataset_path: str | Path) -> Path:
     """Return the standard metadata path next to the processed dataset."""
 
     return resolve_project_path(processed_dataset_path).with_name("dataset_metadata.json")
+
+
+def get_identity_path(processed_dataset_path: str | Path) -> Path:
+    """Return the exact-source identity sidecar path next to the processed dataset."""
+
+    return resolve_project_path(processed_dataset_path).with_name("modeling_identity.parquet")
 
 
 def _configured_input_files(experiment_config: Mapping[str, Any]) -> dict[str, Path]:
@@ -79,6 +92,10 @@ def validate_dataset_inputs(experiment_config: Mapping[str, Any]) -> dict[str, A
         "input_files": {year: str(path) for year, path in input_files.items()},
         "processed_dataset": str(processed_dataset),
         "metadata": str(metadata_path),
+        "source_identity": {
+            **source_identity,
+            "sidecar": str(identity_path) if identity_sidecar is not None else None,
+        },
     }
 
 
@@ -191,6 +208,47 @@ def add_stable_row_id(frame: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
+def build_source_identity_sidecar(frame: pd.DataFrame) -> tuple[pd.DataFrame | None, dict[str, Any]]:
+    """Extract exact source person identity keyed by modeling row_id when available.
+
+    Identity is deliberately kept out of the estimator-facing modeling dataset.
+    Legacy annual inputs that lack NRO_HOGAR/COMPONENTE are reported as
+    unavailable rather than reconstructed from row order or feature signatures.
+    """
+
+    present = [column for column in SOURCE_PERSON_IDENTITY if column in frame.columns]
+    missing = [column for column in SOURCE_PERSON_IDENTITY if column not in frame.columns]
+    status: dict[str, Any] = {
+        "required_columns": list(SOURCE_PERSON_IDENTITY),
+        "present_columns": present,
+        "missing_columns": missing,
+        "exact_source_identity_available": not missing,
+        "within_period_household_key": list(EPH_HOUSEHOLD_KEY),
+        "within_period_person_key": list(EPH_PERSON_KEY),
+        "household_key": list(EPH_GLOBAL_HOUSEHOLD_KEY),
+        "person_key": list(EPH_GLOBAL_PERSON_KEY),
+        "period_qualified": True,
+    }
+    if missing:
+        status["status"] = "unavailable"
+        status["reason"] = "upstream artifact does not preserve exact EPH person identity"
+        return None, status
+
+    sidecar = frame.loc[:, [ROW_ID_COLUMN, *SOURCE_PERSON_IDENTITY]].copy()
+    duplicate_mask = sidecar.duplicated(list(SOURCE_PERSON_IDENTITY), keep=False)
+    duplicate_rows = int(duplicate_mask.sum())
+    status["duplicate_identity_rows"] = duplicate_rows
+    if duplicate_rows:
+        status["status"] = "non_unique"
+        status["exact_source_identity_available"] = False
+        status["reason"] = "source person identity is not one-to-one after modeling filters"
+        return None, status
+
+    status["status"] = "exact"
+    status["rows"] = int(len(sidecar))
+    return sidecar, status
+
+
 def select_modeling_columns(
     frame: pd.DataFrame, feature_contract: Mapping[str, Any]
 ) -> tuple[pd.DataFrame, list[str], bool]:
@@ -229,6 +287,7 @@ def build_modeling_dataset(
     filtered, inclusion_criteria = apply_inclusion_criteria(with_features, feature_contract)
     with_target = construct_target(filtered, feature_contract)
     with_row_id = add_stable_row_id(with_target)
+    identity_sidecar, source_identity = build_source_identity_sidecar(with_row_id)
     modeling_dataset, excluded_forbidden, forbidden_check_passed = select_modeling_columns(
         with_row_id, feature_contract
     )
@@ -249,6 +308,7 @@ def build_modeling_dataset(
 
     dataset_path = resolve_project_path(output_dataset_path)
     metadata_path = resolve_project_path(output_metadata_path)
+    identity_path = get_identity_path(dataset_path)
     input_files = {year: str(path) for year, path in _configured_input_files(experiment_config).items()}
     metadata: dict[str, Any] = {
         "input_files": input_files,
@@ -286,6 +346,10 @@ def build_modeling_dataset(
         dataset_path.parent.mkdir(parents=True, exist_ok=True)
         metadata_path.parent.mkdir(parents=True, exist_ok=True)
         modeling_dataset.to_parquet(dataset_path, index=False)
+        if identity_sidecar is not None:
+            identity_sidecar.to_parquet(identity_path, index=False)
+        elif identity_path.exists():
+            identity_path.unlink()
         metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
 
     return modeling_dataset, metadata

@@ -28,14 +28,24 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from eph_income.entity_identity import (
+    EPH_GLOBAL_HOUSEHOLD_KEY,
+    EPH_GLOBAL_PERSON_KEY,
+    EPH_HOUSEHOLD_KEY,
+    EPH_PERSON_KEY,
+    validate_eph_person_identity,
+)
+
 ANALYSIS_FRAME_CONTRACT = "research.eph-analysis-frame@1"
 CONVERSION_CONTRACT = "research.argentina-monetary-conversion/v1"
 COHORT_CONTRACT = "research.eph-income-study-cohort@1"
 EXPECTED_MONETARY_REFERENCE = (
     "research.argentina-price-consensus/curated-official-panel-v2@2016-01=100"
 )
-HOUSEHOLD_KEY = ["CODUSU", "NRO_HOGAR"]
-PERSON_KEY = ["CODUSU", "NRO_HOGAR", "COMPONENTE"]
+HOUSEHOLD_KEY = list(EPH_HOUSEHOLD_KEY)
+PERSON_KEY = list(EPH_PERSON_KEY)
+GLOBAL_HOUSEHOLD_KEY = list(EPH_GLOBAL_HOUSEHOLD_KEY)
+GLOBAL_PERSON_KEY = list(EPH_GLOBAL_PERSON_KEY)
 SURVEY_DESIGN_FIELDS = ["PONDERA", "PONDIIO", "PONDII", "PONDIH"]
 PROP_RECODE = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 6, 8: 6, 9: 6}
 QUARTER_REFERENCE_MONTH = {1: 2, 2: 5, 3: 8, 4: 11}
@@ -203,7 +213,7 @@ def build_income_study_cohort(
     persons = pd.read_csv(persons_path, low_memory=False)
 
     required_household = {*HOUSEHOLD_KEY, "II7"}
-    required_person = {*PERSON_KEY, "P47T"}
+    required_person = {*GLOBAL_PERSON_KEY, "P47T"}
     missing_household = sorted(required_household - set(households.columns))
     missing_person = sorted(required_person - set(persons.columns))
     if missing_household:
@@ -218,6 +228,12 @@ def build_income_study_cohort(
         raise IncomeStudyError("analysis_frame_household_key_not_unique")
     if persons.duplicated(PERSON_KEY).any():
         raise IncomeStudyError("analysis_frame_person_key_not_unique")
+    try:
+        validate_eph_person_identity(
+            persons, require_period=True, context="income-study source persons"
+        )
+    except ValueError as exc:
+        raise IncomeStudyError(str(exc)) from exc
 
     household_context = households.loc[:, [*HOUSEHOLD_KEY, "II7"]].copy()
     ii7_numeric = pd.to_numeric(household_context["II7"], errors="coerce")
@@ -258,10 +274,7 @@ def build_income_study_cohort(
         raise IncomeStudyError("income_study_cohort_empty")
     cohort["logP47T"] = np.log10(cohort["P47T"])
 
-    output_columns = [*PERSON_KEY]
-    for optional in ("ANO4", "TRIMESTRE"):
-        if optional in cohort.columns:
-            output_columns.append(optional)
+    output_columns = [*GLOBAL_PERSON_KEY]
     output_columns.extend(
         field for field in SURVEY_DESIGN_FIELDS if field in cohort.columns
     )
@@ -299,9 +312,11 @@ def build_income_study_cohort(
             "prop_not_missing": int(prop_ok.sum()),
             "eligible_persons": len(cohort),
             "household_group_count": int(
-                cohort.loc[:, HOUSEHOLD_KEY].drop_duplicates().shape[0]
+                cohort.loc[:, GLOBAL_HOUSEHOLD_KEY].drop_duplicates().shape[0]
             ),
-            "identity_unique": not cohort.duplicated(PERSON_KEY).any(),
+            "identity_unique": not cohort.duplicated(GLOBAL_PERSON_KEY).any(),
+            "global_person_key": GLOBAL_PERSON_KEY,
+            "global_household_key": GLOBAL_HOUSEHOLD_KEY,
             "survey_design_fields_preserved": [
                 field for field in SURVEY_DESIGN_FIELDS if field in cohort.columns
             ],
@@ -330,8 +345,11 @@ def build_income_study_cohort(
                 },
             },
             "identity": {
-                "person_key": PERSON_KEY,
-                "household_group_key": HOUSEHOLD_KEY,
+                "within_period_person_key": PERSON_KEY,
+                "within_period_household_key": HOUSEHOLD_KEY,
+                "person_key": GLOBAL_PERSON_KEY,
+                "household_group_key": GLOBAL_HOUSEHOLD_KEY,
+                "period_qualified": True,
             },
             "cohort": {
                 "policy_id": "historical_income_study_v1",

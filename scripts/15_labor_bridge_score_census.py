@@ -14,6 +14,10 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
+from eph_income.entity_identity import (  # noqa: E402
+    census_identity_columns,
+    validate_census_person_identity,
+)
 from eph_income.labor_bridge import TwoStageLaborBridge  # noqa: E402
 
 
@@ -46,21 +50,30 @@ def run(
     if frame[person_id_column].astype(str).duplicated().any():
         raise ValueError("Census labor scoring person IDs must be unique")
 
+    identity_frame = frame.copy()
+    normalized_person_id = frame[person_id_column].astype(str)
+    if "sample_person_id" in identity_frame and person_id_column != "sample_person_id":
+        if not identity_frame["sample_person_id"].astype(str).equals(normalized_person_id):
+            raise ValueError(
+                "configured Census person identity disagrees with sample_person_id"
+            )
+    identity_frame["sample_person_id"] = normalized_person_id
+    identity_audit = validate_census_person_identity(
+        identity_frame, context="Census labor scoring"
+    )
+    identity_columns = census_identity_columns(identity_frame)
+
     bridge = TwoStageLaborBridge.load(model_path)
     scored = bridge.predict_probabilities(frame)
-    out = pd.DataFrame(
-        {
-            "sample_person_id": frame[person_id_column].astype(str).to_numpy(),
-            "calibration_domain_id": frame[calibration_domain_column].to_numpy(),
-            "p_active_raw": scored["labor_p_active"].to_numpy(),
-            "p_unemployed_given_active_raw": scored[
-                "labor_p_unemployed_given_active"
-            ].to_numpy(),
-            "p_employed_raw": scored["labor_p_employed"].to_numpy(),
-            "p_unemployed_raw": scored["labor_p_unemployed"].to_numpy(),
-            "p_inactive_raw": scored["labor_p_inactive"].to_numpy(),
-        }
-    )
+    out = identity_frame.loc[:, identity_columns].copy()
+    out["calibration_domain_id"] = frame[calibration_domain_column].to_numpy()
+    out["p_active_raw"] = scored["labor_p_active"].to_numpy()
+    out["p_unemployed_given_active_raw"] = scored[
+        "labor_p_unemployed_given_active"
+    ].to_numpy()
+    out["p_employed_raw"] = scored["labor_p_employed"].to_numpy()
+    out["p_unemployed_raw"] = scored["labor_p_unemployed"].to_numpy()
+    out["p_inactive_raw"] = scored["labor_p_inactive"].to_numpy()
 
     output.mkdir(parents=True, exist_ok=False)
     raw_path = output / "census_labor_probabilities_raw.parquet"
@@ -74,6 +87,7 @@ def run(
             "sha256": sha256(census_path),
             "rows": len(frame),
         },
+        "identity": identity_audit,
         "person_id_column": person_id_column,
         "calibration_domain_column": calibration_domain_column,
         "artifact": {
@@ -82,7 +96,9 @@ def run(
             "bytes": raw_path.stat().st_size,
             "rows": len(out),
         },
-        "next_contract": "research.census-labor-probabilities/v1 after official-domain calibration",
+        "next_contract": (
+            "research.census-labor-probabilities/v1 after official-domain calibration"
+        ),
     }
     (output / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n"
@@ -109,7 +125,11 @@ def main() -> int:
         person_id_column=args.person_id_column,
         calibration_domain_column=args.calibration_domain_column,
     )
-    print(json.dumps({"release": manifest["release_id"], "rows": manifest["artifact"]["rows"]}))
+    print(
+        json.dumps(
+            {"release": manifest["release_id"], "rows": manifest["artifact"]["rows"]}
+        )
+    )
     return 0
 
 
