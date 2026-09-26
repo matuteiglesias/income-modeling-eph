@@ -25,6 +25,7 @@ from eph_income.contracts import (
     validate_target_contract,
 )
 from eph_income.features import apply_second_stage_features
+from eph_income.entity_identity import EPH_GLOBAL_PERSON_KEY
 
 KNOWN_2024_2025_COLUMN_DROPS = (
     "V2_01_M",
@@ -35,7 +36,7 @@ KNOWN_2024_2025_COLUMN_DROPS = (
     "V5_03_M",
 )
 ROW_ID_COLUMN = "row_id"
-SOURCE_PERSON_IDENTITY = ("CODUSU", "NRO_HOGAR", "COMPONENTE", "ANO4", "TRIMESTRE")
+SOURCE_PERSON_IDENTITY = EPH_GLOBAL_PERSON_KEY
 
 
 def resolve_project_path(path: str | Path) -> Path:
