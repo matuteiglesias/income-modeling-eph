@@ -16,9 +16,11 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+from eph_income.entity_identity import EPH_HOUSEHOLD_KEY, EPH_PERSON_KEY
+
 CONTRACT = "research.eph-analysis-frame@1"
-PERSON_KEY = ("CODUSU", "NRO_HOGAR", "COMPONENTE")
-HOUSEHOLD_KEY = ("CODUSU", "NRO_HOGAR")
+PERSON_KEY = EPH_PERSON_KEY
+HOUSEHOLD_KEY = EPH_HOUSEHOLD_KEY
 SURVEY_DESIGN_FIELDS = ("PONDERA", "PONDIIO", "PONDII", "PONDIH")
 FORBIDDEN_DERIVED_FIELDS = {"logP47T", "AGLO_rk", "Reg_rk"}
 
@@ -190,6 +192,7 @@ def build_analysis_frame(parent_root: Path, output_root: Path) -> Path:
             "persons": len(persons),
             "household_key": list(HOUSEHOLD_KEY),
             "person_key": list(PERSON_KEY),
+            "period_scope": parent_lock.get("period"),
             "household_key_unique": True,
             "person_key_unique": True,
             "person_to_household_cardinality": "many_to_one_validated",
@@ -220,9 +223,14 @@ def build_analysis_frame(parent_root: Path, output_root: Path) -> Path:
             "parent": parent_identity,
             "artifacts": artifacts,
             "identity": {
+                "period_scope": parent_lock.get("period"),
                 "household_key": list(HOUSEHOLD_KEY),
                 "person_key": list(PERSON_KEY),
                 "person_to_household_cardinality": "many_to_one",
+                "global_identity_rule": (
+                    "parent period + source entity key; downstream pooled surfaces "
+                    "must retain ANO4/TRIMESTRE with the local keys"
+                ),
             },
             "field_policy": {
                 "source_semantics": "native_eph",
