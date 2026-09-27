@@ -33,6 +33,17 @@ The repository also contains the newer staged Census experiment/packaging path (
 
 No code is removed by this boundary declaration. A later implementation can extract/promote deployment-safe model bundles and move scoring orchestration downstream only after exact contracts are proven.
 
+## Cross-ecosystem labor bridge status
+
+The bounded 2024-Q3 labor bridge is closed under the commissioning registry owned by
+`matuteiglesias/indice-pobreza-UBA`:
+
+- L2 corrected reconstruction: `closed_pass`; unresolved `H06` is absent from the governed feature contract.
+- L3 marginal calibration: `closed_pass` downstream of the exact corrected L2 artifact.
+- L4 welfare adjudication: `closed_negative`; true labor improves welfare prediction, while the transportable labor probabilities do not.
+
+This negative downstream result is a stop decision, not a request for another labor-model tuning cycle. See `docs/LABOR_BRIDGE_SHADOW.md` and the Poverty commissioning registry for rerun triggers.
+
 ## Current command surface
 
 ```bash
