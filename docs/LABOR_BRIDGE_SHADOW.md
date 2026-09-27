@@ -1,8 +1,26 @@
 # Labor bridge shadow — L2 model and L4 welfare handoff
 
-Status: L1/L2/L3 real-data commissioning is active; L4 requires exact source-person identity.
+Status: **bounded revalidation only**.
 
-This is a shadow path. It does not change the frozen income flagship or authorize
+Current cross-ecosystem adjudication lives in
+`matuteiglesias/indice-pobreza-UBA/science/commissioning/registry.json`.
+This document owns the labor-bridge mechanics, not the global work queue.
+
+Current state:
+- L1 is closed/pass upstream;
+- L2 Q3 was commissioned under the prior shared-feature contract and requires one
+  bounded rerun after unresolved H06 was removed;
+- L3 Q3 calibration logic passed and should be recomputed once from the refreshed
+  L2 raw probabilities;
+- exact source identity for L4 is solved;
+- the prior identity-safe L4 shadow was negative: true labor helped welfare, while
+  transportable labor probabilities did not recover the oracle gain.
+
+After the aligned L2/L3 rerun, run L4 once. If the negative result is materially
+unchanged, close the labor→welfare bridge rather than starting a new feature-engineering
+program.
+
+This remains a shadow path. It does not change the frozen income flagship or authorize
 2022/23 predictive welfare.
 
 ## Scientific structure
@@ -64,14 +82,18 @@ python scripts/14_labor_bridge_fit.py \
   --output /home/matias/data/labor-bridge-2024-q3-hgb-pondera
 ```
 
-Repeat across the commissioning periods. Selection between specifications should
-use held-out/OOF diagnostics plus transport behavior, not training fit.
+2024-Q3 remains the commissioning anchor. Do not expand across periods merely for
+completeness; additional periods require an explicit rerun trigger from the consolidated
+commissioning registry. Selection between specifications uses held-out/OOF diagnostics
+plus transport behavior, not training fit.
 
 ## L3 raw Census scoring
 
-This step is blocked on the real full-payload + harmonized Census frame.
+The real full-payload / semantic Census path now exists, and Q3 raw scoring plus
+agglomerate calibration have already passed once. The command below remains the governed
+mechanism. Rerun it only after the bounded L2 feature-contract refresh; do not treat the
+previous "blocked" state as current.
 
-When available:
 
 ```bash
 python scripts/15_labor_bridge_score_census.py \
@@ -108,6 +130,9 @@ labor_p_unemployed
 and explicitly forbids observed labor variables as predictors.
 
 Attach an exact OOF probability release to the corresponding EPH modeling frame.
+
+Exact identity is no longer a conceptual blocker. The source-backed Q3 identity-safe
+attachment has been proven; identity remains a hard contract for every rerun.
 
 Source-backed modeling builds publish `modeling_identity.parquet` as a
 non-predictor sidecar keyed by `row_id`. The sidecar carries the exact source
