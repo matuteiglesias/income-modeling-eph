@@ -7,7 +7,6 @@ categorical:
   - P10
   - V01
   - H05
-  - H06
   - H07
   - H08
   - H09
@@ -32,3 +31,4 @@ notes:
   - Geography is intentionally excluded from the first predictive bridge; official domain calibration handles geography downstream.
   - Observed labor-state variables are targets/diagnostics only and must never be predictors.
   - The first implementation compares logistic and HistGradientBoosting classifiers with identical shared covariates.
+  - H06, H11, and H16 are excluded while unresolved in the governed EPH/Census semantic plane; this contract is a modeling subset of approved canonical concepts, not the full semantic surface.
