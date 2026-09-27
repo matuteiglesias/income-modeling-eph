@@ -1,27 +1,29 @@
 # Labor bridge shadow — L2 model and L4 welfare handoff
 
-Status: **bounded revalidation only**.
+Status: **commissioned and closed for the 2024-Q3 anchor**.
 
 Current cross-ecosystem adjudication lives in
 `matuteiglesias/indice-pobreza-UBA/science/commissioning/registry.json`.
 This document owns the labor-bridge mechanics, not the global work queue.
 
 Current state:
-- L1 is closed/pass upstream;
-- L2 Q3 was commissioned under the prior shared-feature contract and requires one
-  bounded rerun after unresolved H06 was removed;
-- L3 Q3 calibration logic passed and should be recomputed once from the refreshed
-  L2 raw probabilities;
+- L1 is `closed_pass` upstream;
+- L2 is `closed_pass` after the corrected Q3 rerun with unresolved `H06` removed;
+- L3 is `closed_pass` downstream of the exact corrected L2 artifact, with 32
+  calibrated EPH-frame domains and the outside-frame domain retained as unbenchmarked;
 - exact source identity for L4 is solved;
-- the prior identity-safe L4 shadow was negative: true labor helped welfare, while
-  transportable labor probabilities did not recover the oracle gain.
+- L4 is `closed_negative`: the true-labor oracle materially improves welfare,
+  while the transportable labor-probability bridge is neutral/slightly harmful.
 
-After the aligned L2/L3 rerun, run L4 once. If the negative result is materially
-unchanged, close the labor→welfare bridge rather than starting a new feature-engineering
-program.
+The scientific interpretation is therefore stable: labor contains
+welfare-relevant information, but the currently commissioned transportable reconstruction
+does not preserve enough of that information to be a useful welfare feature.
 
-This remains a shadow path. It does not change the frozen income flagship or authorize
-2022/23 predictive welfare.
+Do not reopen this path merely to try another labor model. Revalidation requires an
+explicit upstream trigger from the commissioning registry.
+
+This remains a shadow/diagnostic path. It does not change the frozen income flagship or
+by itself authorize 2022/23 predictive welfare.
 
 ## Scientific structure
 
@@ -89,10 +91,9 @@ plus transport behavior, not training fit.
 
 ## L3 raw Census scoring
 
-The real full-payload / semantic Census path now exists, and Q3 raw scoring plus
-agglomerate calibration have already passed once. The command below remains the governed
-mechanism. Rerun it only after the bounded L2 feature-contract refresh; do not treat the
-previous "blocked" state as current.
+The real full-payload / semantic Census path exists, and the corrected Q3 raw scoring plus
+agglomerate calibration are closed/pass. The command below remains the governed
+reproduction mechanism. Rerun it only if an explicit upstream registry trigger fires.
 
 
 ```bash
