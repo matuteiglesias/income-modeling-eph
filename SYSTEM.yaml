@@ -47,10 +47,12 @@ generated_paths:
 - artifacts/
 - reports/
 verification:
-  status: durable-upstream-intake-proven-preprocessing-reconstruction-pending
-  last_verified: '2026-08-31'
+  status: durable-upstream-intake-proven-labor-bridge-closed-negative
+  last_verified: '2026-09-27'
   command: make validate
   evidence:
+  - corrected 2024-Q3 L2 labor reconstruction excludes unresolved H06 and is closed_pass under the cross-ecosystem commissioning registry
+  - L4 three-arm welfare adjudication is closed_negative: true labor has welfare value, but the current transportable labor bridge does not improve out-of-sample welfare
   - independent consumer intake verifies and pins durable publicdata.eph-microdata@1 releases without importing producer runtime
   - live run 33358100454 consumed candidate-eph-2026-q1-beff9b8299d5 from microdatos-EPH-INDEC
   - live intake verified discovery, transport checksum, producer manifest, retained official source archive and normalized file inventory before writing an exact parent lock
