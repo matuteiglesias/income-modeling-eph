@@ -1,8 +1,8 @@
 """Verify and pin exact durable EPH source releases.
 
-This module intentionally stops at the transport boundary.  It does not decide
-how quarter releases should be transformed into a neutral annual EPH analysis
-frame; that scientific work remains governed by issues #24/#29.
+This module intentionally stops at exact EPH release discovery/intake. The current
+source-backed neutral transformation is implemented separately in `analysis_frame.py`;
+intake must not silently perform study-specific cohort or feature engineering.
 """
 from __future__ import annotations
 
