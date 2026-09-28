@@ -58,7 +58,7 @@ verification:
   - live intake verified discovery, transport checksum, producer manifest, retained official source archive and normalized file inventory before writing an exact parent lock
   - scheduled convergence mode fails on the selected newest invalid candidate rather than silently falling back; exact-tag reproduction is available separately
   unknowns:
-  - source-backed quarterly-to-neutral-analysis-frame transformation remains unresolved under issues #24 and #29
+  - historical `research.eph-annual-preprocessed@1` byte lineage remains incomplete, but the current source-backed neutral `research.eph-analysis-frame@1` path is implemented and real-data-proven
   - historical monetary price series and reference period
   - deployment-safe model bundle and promotion contract are not yet finalized
   - staged Census code currently present is provisional and not the long-term scoring authority
