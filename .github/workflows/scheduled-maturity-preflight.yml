@@ -47,5 +47,5 @@ jobs:
             echo
             echo "A red run should be investigated as evidence (for example unresolved source-backed annual lineage, entity identity, monetary reference, or another explicit release gate); the scheduled workflow must not weaken the gate to become green."
             echo
-            echo "Related architecture work: issues #24, #25, #26, #28 and #29."
+            echo "Current unresolved consumer gate: monetary-reference/approval work tracked by issue #26. Neutral-frame identity/design and the EPH-only authority boundary are implemented; historical issues should not be treated as an active queue."
           } >> "$GITHUB_STEP_SUMMARY"
