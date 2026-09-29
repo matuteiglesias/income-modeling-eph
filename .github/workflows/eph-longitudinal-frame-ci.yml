@@ -1,0 +1,55 @@
+name: EPH longitudinal frame CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/eph-longitudinal-frame-ci.yml
+      - configs/longitudinal_eph_harmonization_v1.json
+      - docs/LONGITUDINAL_EPH_2017_2026_IMPLEMENTATION.md
+      - src/eph_income/longitudinal_inputs.py
+      - src/eph_income/longitudinal_frame.py
+      - scripts/17_build_longitudinal_parent_ledger.py
+      - scripts/18_build_longitudinal_analysis_frame.py
+      - tests/test_longitudinal_frame.py
+      - Makefile
+      - README.md
+      - SYSTEM.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  c2-fixture-and-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package and dev dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint C2 implementation
+        run: >-
+          ruff check
+          src/eph_income/longitudinal_inputs.py
+          src/eph_income/longitudinal_frame.py
+          scripts/17_build_longitudinal_parent_ledger.py
+          scripts/18_build_longitudinal_analysis_frame.py
+          tests/test_longitudinal_frame.py
+
+      - name: Run C2 offline 37-quarter fixture
+        run: pytest -q tests/test_longitudinal_frame.py
+
+      - name: Run full repository test suite
+        run: make test
+
+      - name: Validate frozen historical inputs and consumer path
+        run: make validate
