@@ -13,6 +13,7 @@ help:
 	@echo "  make preprocessing-smoke         Characterize annual schemas and row counts"
 	@echo "  make preprocessing-release-fixture Run the bounded synthetic preprocessing fixture"
 	@echo "  make preprocessing-manifests     Regenerate annual release manifests"
+	@echo "  make longitudinal-fixture        Run the offline 37-quarter longitudinal fixture"
 	@echo "  make lint                        Run ruff over source, tests, and scripts"
 	@echo "  make test                        Run pytest"
 	@echo "  make census-inference-check      Inventory local historical Census/RFC/model artifacts"
@@ -74,6 +75,10 @@ preprocessing-release-fixture:
 
 preprocessing-manifests:
 	$(PYTHON) scripts/11_preprocessing_authority.py manifests
+
+.PHONY: longitudinal-fixture
+longitudinal-fixture:
+	pytest -q tests/test_longitudinal_frame.py
 
 model-freeze-preflight:
 	$(PYTHON) scripts/12_flagship_freeze.py preflight
