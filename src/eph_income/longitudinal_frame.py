@@ -169,8 +169,7 @@ def _schema_rows(
 
 def _write_csv(path: Path, fields: list[str], rows: Iterable[dict[str, Any]]) -> None:
     with Path(path).open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="
-")
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow({field: row.get(field, "") for field in fields})
@@ -266,8 +265,7 @@ def _panel_audit(database: sqlite3.Connection, staging: Path) -> dict[str, Any]:
       ORDER BY candidate_id,period_index,row_id
     """
     with (staging / "panel_links.csv").open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=link_fields, lineterminator="
-")
+        writer = csv.DictWriter(stream, fieldnames=link_fields, lineterminator="\n")
         writer.writeheader()
         for row in database.execute(query):
             (
@@ -325,8 +323,7 @@ def _panel_audit(database: sqlite3.Connection, staging: Path) -> dict[str, Any]:
     with (staging / "panel_households.csv").open(
         "w", encoding="utf-8", newline=""
     ) as stream:
-        writer = csv.DictWriter(stream, fieldnames=household_fields, lineterminator="
-")
+        writer = csv.DictWriter(stream, fieldnames=household_fields, lineterminator="\n")
         writer.writeheader()
         for panel_household, dwelling, count, first, last, periods in database.execute(query):
             households += 1
@@ -367,8 +364,7 @@ def _checksums(staging: Path) -> None:
         if path.is_file() and path.name != "checksums.sha256"
     )
     (staging / "checksums.sha256").write_text(
-        "".join(f"{sha256(staging / name)}  {name}
-" for name in names), encoding="utf-8"
+        "".join(f"{sha256(staging / name)}  {name}\n" for name in names), encoding="utf-8"
     )
 
 
@@ -482,8 +478,7 @@ def build_longitudinal_frame(
         status_counts: Counter[str] = Counter()
         roundtrip_error = Decimal(0)
         with (staging / "persons.csv").open("w", encoding="utf-8", newline="") as stream:
-            writer = csv.DictWriter(stream, fieldnames=output_fields, lineterminator="
-")
+            writer = csv.DictWriter(stream, fieldnames=output_fields, lineterminator="\n")
             writer.writeheader()
             for entry in entries:
                 period = entry["period"]
