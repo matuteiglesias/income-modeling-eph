@@ -1,0 +1,45 @@
+{
+  "schema": "eph-longitudinal-harmonization/v1",
+  "semantic_rename_policy": "no_unproven_renames",
+  "optional_field_policy": "union_preserve_blank_when_absent",
+  "required_person_fields": [
+    "CODUSU",
+    "NRO_HOGAR",
+    "COMPONENTE",
+    "ANO4",
+    "TRIMESTRE",
+    "AGLOMERADO",
+    "REGION",
+    "P47T",
+    "PONDERA"
+  ],
+  "required_person_any_of": [
+    ["ESTADO", "CONDACT"]
+  ],
+  "required_household_fields": [
+    "CODUSU",
+    "NRO_HOGAR",
+    "ANO4",
+    "TRIMESTRE",
+    "AGLOMERADO",
+    "REGION"
+  ],
+  "source_field_policy": {
+    "required_fields": "must exist in every quarter and keep native semantics",
+    "optional_fields": "union across quarters; blank only when absent from that source schema",
+    "aliases": "none until a transition is proven from official source documentation"
+  },
+  "identity_policy": {
+    "household_observation": ["ANO4", "TRIMESTRE", "CODUSU", "NRO_HOGAR"],
+    "person_observation": ["ANO4", "TRIMESTRE", "CODUSU", "NRO_HOGAR", "COMPONENTE"],
+    "panel_dwelling_candidate": ["CODUSU"],
+    "panel_household_candidate": ["CODUSU", "NRO_HOGAR"],
+    "person_linkage_candidate": ["CODUSU", "NRO_HOGAR", "COMPONENTE"]
+  },
+  "monetary_policy": {
+    "source_field": "P47T",
+    "retain_zero": true,
+    "retain_negative_source_values_without_real_conversion": true,
+    "quarter_reference_months": {"Q1": 2, "Q2": 5, "Q3": 8, "Q4": 11}
+  }
+}
