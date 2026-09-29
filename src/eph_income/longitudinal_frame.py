@@ -8,10 +8,11 @@ import shutil
 import sqlite3
 import tempfile
 from collections import Counter
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, localcontext
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable
+from typing import Any
 
 from eph_income.entity_identity import EPH_HOUSEHOLD_KEY, EPH_PERSON_KEY
 from eph_income.longitudinal_inputs import (
