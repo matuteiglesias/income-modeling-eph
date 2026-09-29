@@ -25,6 +25,22 @@ Expected input artifacts:
 - `data/annual_preprocessed_inputs/EPHARG_annual_input_24.csv`
 - `data/annual_preprocessed_inputs/EPHARG_annual_input_25.csv`
 
+## Longitudinal EPH evidence lane
+
+The modern source-backed path now also has a separate governed longitudinal lane for
+`2017-Q1..2026-Q1`. It consumes exactly 37 pinned `publicdata.eph-microdata@1`
+parents plus an immutable `research.argentina-monetary-conversion/v1` release and
+emits `research.eph-longitudinal-analysis-frame/v1`.
+
+This lane retains every valid source person, including zero-income observations,
+keeps period-qualified observation identity separate from repeated-wave linkage
+candidates, preserves both nominal and common-reference real `P47T`, and marks
+2020-Q2 plus 2024-Q1/Q2 as exceptional periods without deleting them. It does not
+modify the frozen 2022–2025 flagship or train the downstream welfare model.
+
+See `docs/LONGITUDINAL_EPH_2017_2026_IMPLEMENTATION.md` for the exact parent,
+schema, panel, monetary and L2 contracts.
+
 ## Research and deployment are different surfaces
 
 The frozen HGB flagship is an EPH research/model-release candidate and explicitly rejects Census-shaped inference. It should remain a scientific benchmark rather than being retrofitted by silently substituting Census-derived columns.
@@ -51,6 +67,7 @@ make validate
 make preprocessing-smoke
 make preprocessing-release-fixture
 make preprocessing-manifests
+make longitudinal-fixture
 make test
 make build-dataset
 make run-debug
