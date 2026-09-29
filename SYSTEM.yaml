@@ -13,6 +13,7 @@ authority:
   owns:
   - EPH preprocessing after receipt of a versioned source release
   - annual preprocessed EPH artifact schema, lineage, manifests and releases
+  - governed source-backed longitudinal EPH analysis frames and parent/monetary lineage
   - modeling dataset, income target, features, leakage exclusions and split policy
   - model training, experiment comparison, diagnostics and scientific evidence
   - promotion evidence and candidate EPH income-model bundles
@@ -27,6 +28,7 @@ interfaces:
   - artifact:publicdata.eph-microdata@1
   produces:
   - artifact:research.eph-annual-preprocessed@1
+  - artifact:research.eph-longitudinal-analysis-frame/v1
   - artifact:research.eph-modeling-dataset@1
   - artifact:research.eph-income-model@1
   - artifact:research.eph-model-output@1
@@ -41,6 +43,7 @@ canonical_commands:
 - make test
 - make preprocessing-smoke
 - make preprocessing-release-fixture
+- make longitudinal-fixture
 - make preprocessing-manifests
 - make build-dataset
 generated_paths:
