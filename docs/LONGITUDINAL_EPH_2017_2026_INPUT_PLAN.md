@@ -27,7 +27,7 @@ The longitudinal welfare study needs:
 - no target-derived geography ranks;
 - explicit monetary conversion rather than hidden legacy normalization;
 - household-safe repeated-wave grouping;
-- a COVID-2020-Q2 policy.
+- an exceptional-shock-period policy for COVID 2020-Q2 and the pronounced 2024-Q1/Q2 macroeconomic shock.
 
 Do not mutate the flagship dataset in place.
 
@@ -128,24 +128,27 @@ Deflation occurs before fitting the positive-income amount head. The zero/positi
 
 Do not reuse the historical January-2016 normalization unless it is independently re-authorized through the current monetary contract.
 
-## 2020-Q2 policy
+## Exceptional shock-period policy
 
-Keep 2020-Q2 in the artifact and preserve the actual COVID-era observation.
+Keep the affected quarters in the artifact and preserve their actual observations. They are part of the measurement history and should show their real dips.
 
-Mark it explicitly:
+Mark explicitly:
 
 ```text
-pandemic_fieldwork_regime
+2020-Q2  pandemic_fieldwork_regime
+2024-Q1  2024_h1_macroeconomic_shock
+2024-Q2  2024_h1_macroeconomic_shock
 ```
 
 Downstream default structural fitting policy:
 
-- exclude 2020-Q2 from estimation of ordinary recurring quarter seasonality;
-- exclude it from any "normal-period" structural sensitivity where requested;
-- permit a dedicated 2020-Q2 period/shock correction so an actual 2020-Q2 measurement can still be produced;
-- always report a with/without-2020-Q2 sensitivity.
+- exclude all three exceptional quarters from estimation of ordinary recurring quarter seasonality;
+- exclude them from estimation of the ordinary/structural time level meant to describe non-shock periods;
+- permit dedicated period/shock corrections so actual 2020-Q2, 2024-Q1 and 2024-Q2 measurements can still reproduce their observed dips;
+- for 2024, estimate the ordinary year-level component from non-exceptional observed quarters where available, with Q1/Q2 deviations carried by exceptional-period terms rather than dragging the ordinary 2024 level;
+- always report structural sensitivities with and without the exceptional quarters in the ordinary-time fit.
 
-Do not delete the quarter.
+Do not delete any of these quarters.
 
 ## Feature boundary
 
@@ -170,7 +173,7 @@ Deliver:
 3. source-faithful person/household join with period-qualified IDs;
 4. repeated-wave/panel audit tooling;
 5. IPC conversion hook + exact monetary lineage;
-6. 2020-Q2 exception policy;
+6. exceptional-shock-period policy for 2020-Q2 and 2024-Q1/Q2;
 7. longitudinal artifact manifest/checksums/coverage;
 8. fixture tests spanning schema transitions;
 9. no changes to the frozen 2022-2025 flagship artifacts.
@@ -198,7 +201,7 @@ Suggested external roots:
 
 ## Definition of done
 
-A single immutable longitudinal EPH analysis release exists for 2017-Q1..2026-Q1, with exact parent lineage, common-real-income target, household-safe identities and explicit 2020-Q2 status, and can be consumed by `encuestador-de-hogares` as an artifact rather than by importing this repo runtime.
+A single immutable longitudinal EPH analysis release exists for 2017-Q1..2026-Q1, with exact parent lineage, common-real-income target, household-safe identities and explicit exceptional-period status, and can be consumed by `encuestador-de-hogares` as an artifact rather than by importing this repo runtime.
 
 ## Non-goals
 
