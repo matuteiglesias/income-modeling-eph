@@ -51,5 +51,5 @@ jobs:
       - name: Run full repository test suite
         run: make test
 
-      - name: Validate frozen historical inputs and consumer path
-        run: make validate
+      - name: Validate frozen historical preprocessing authority
+        run: python scripts/11_preprocessing_authority.py validate --check
