@@ -91,6 +91,12 @@ def table_profile(path: Path) -> tuple[list[str], int, str]:
         except StopIteration as exc:
             raise LongitudinalFrameError(f"empty_table:{path.name}") from exc
         rows = sum(1 for _ in reader)
+    # A small number of official EPH text releases carry a trailing delimiter
+    # after the final header.  It denotes no source field and is retained in
+    # the source-faithful file; exclude only that terminal empty token from
+    # the governed schema inventory.
+    if fields and fields[-1] == "":
+        fields = fields[:-1]
     if not fields or any(not field for field in fields) or len(fields) != len(set(fields)):
         raise LongitudinalFrameError(f"invalid_table_header:{path.name}")
     fingerprint = hashlib.sha256(
@@ -102,8 +108,14 @@ def table_profile(path: Path) -> tuple[list[str], int, str]:
 def read_rows(path: Path):
     with Path(path).open("r", encoding="utf-8-sig", newline="") as stream:
         reader = csv.DictReader(stream, dialect=_dialect(path))
+        if reader.fieldnames and reader.fieldnames[-1].strip() == "":
+            reader.fieldnames = reader.fieldnames[:-1]
         for row in reader:
-            yield {key: (value or "").strip() for key, value in row.items()}
+            yield {
+                key: (value or "").strip()
+                for key, value in row.items()
+                if key is not None
+            }
 
 
 def _role_item(manifest: dict[str, Any], role: str) -> dict[str, Any]:
