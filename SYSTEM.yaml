@@ -50,17 +50,21 @@ generated_paths:
 - artifacts/
 - reports/
 verification:
-  status: durable-upstream-intake-proven-labor-bridge-closed-negative
-  last_verified: '2026-09-27'
+  status: real-37q-longitudinal-frame-materialized-historical-q3-labor-bridge-closed
+  last_verified: '2026-09-30'
   command: make validate
   evidence:
-  - corrected 2024-Q3 L2 labor reconstruction excludes unresolved H06 and is closed_pass under the cross-ecosystem commissioning registry
-  - L4 three-arm welfare adjudication is closed_negative: true labor has welfare value, but the current transportable labor bridge does not improve out-of-sample welfare
+  - real longitudinal release eph-longitudinal-2017q1-2026q1-c155bb8f847a2f39 materializes 37 exact quarters and 1,869,620 person-period rows with exact upstream parent lineage
+  - repeated-wave audit persists short-gap candidate linkage evidence without claiming permanent person identity
+  - midpoint quarter-to-month monetary timing is frozen for bounded commissioning; the monetary conversion parent remains candidate
+  - corrected 2024-Q3 labor reconstruction excludes unresolved H06 and remains closed_pass under the historical cross-ecosystem commissioning registry
+  - historical 2024-Q3 three-arm labor-bridge welfare adjudication is closed_negative; this does not adjudicate the newer longitudinal L10/L11/L12 program owned downstream by repo.encuestador-de-hogares
   - independent consumer intake verifies and pins durable publicdata.eph-microdata@1 releases without importing producer runtime
   - live run 33358100454 consumed candidate-eph-2026-q1-beff9b8299d5 from microdatos-EPH-INDEC
   - live intake verified discovery, transport checksum, producer manifest, retained official source archive and normalized file inventory before writing an exact parent lock
   - scheduled convergence mode fails on the selected newest invalid candidate rather than silently falling back; exact-tag reproduction is available separately
   unknowns:
+  - candidate monetary conversion parent must be separately promoted/replaced before approved-mode longitudinal scientific freeze
   - historical `research.eph-annual-preprocessed@1` byte lineage remains incomplete, but the current source-backed neutral `research.eph-analysis-frame@1` path is implemented and real-data-proven
   - historical monetary price series and reference period
   - deployment-safe model bundle and promotion contract are not yet finalized
