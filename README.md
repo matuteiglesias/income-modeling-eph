@@ -38,8 +38,17 @@ candidates, preserves both nominal and common-reference real `P47T`, and marks
 2020-Q2 plus 2024-Q1/Q2 as exceptional periods without deleting them. It does not
 modify the frozen 2022–2025 flagship or train the downstream welfare model.
 
-See `docs/LONGITUDINAL_EPH_2017_2026_IMPLEMENTATION.md` for the exact parent,
-schema, panel, monetary and L2 contracts.
+The first real L2 materialization is now complete:
+
+- release: `eph-longitudinal-2017q1-2026q1-c155bb8f847a2f39`;
+- 37/37 exact quarterly parents;
+- 1,869,620 person-period rows, including 704,167 zero-income observations;
+- 1,172,374 candidate repeated-person links, of which 1,073,713 are demographically consistent;
+- midpoint monetary timing is the bounded-commissioning centerline: Q1→February, Q2→May, Q3→August, Q4→November.
+
+The monetary conversion parent remains `candidate`, so this release is authorized for bounded longitudinal commissioning but not yet promoted to approved-mode scientific freeze.
+
+See `docs/LONGITUDINAL_EPH_2017_2026_IMPLEMENTATION.md` and `docs/L2_REAL_LONGITUDINAL_EPH_COMMISSIONING_GATE.md` for the exact parent, schema, panel, monetary and L2 contracts.
 
 ## Research and deployment are different surfaces
 
@@ -49,16 +58,18 @@ The repository also contains the newer staged Census experiment/packaging path (
 
 No code is removed by this boundary declaration. A later implementation can extract/promote deployment-safe model bundles and move scoring orchestration downstream only after exact contracts are proven.
 
-## Cross-ecosystem labor bridge status
+## Historical 2024-Q3 labor-bridge result
 
-The bounded 2024-Q3 labor bridge is closed under the commissioning registry owned by
-`matuteiglesias/indice-pobreza-UBA`:
+The bounded **2024-Q3** labor bridge is closed under the commissioning registry owned by
+`matuteiglesias/indice-pobreza-UBA`. This is historical/anchor evidence and must not be confused with the newer 2017-Q1..2026-Q1 longitudinal L10/L11/L12 program owned by `encuestador-de-hogares`:
 
 - L2 corrected reconstruction: `closed_pass`; unresolved `H06` is absent from the governed feature contract.
 - L3 marginal calibration: `closed_pass` downstream of the exact corrected L2 artifact.
 - L4 welfare adjudication: `closed_negative`; true labor improves welfare prediction, while the transportable labor probabilities do not.
 
-This negative downstream result is a stop decision, not a request for another labor-model tuning cycle. See `docs/LABOR_BRIDGE_SHADOW.md` and the Poverty commissioning registry for rerun triggers.
+That negative result remains valid for the declared 2024-Q3 reconstruction hypothesis. It does **not** answer the newer longitudinal questions, which separate current aggregate labor context (L10), genuinely stale observed labor state on repeated EPH waves (L11), and donor-informed current-state probabilities (L12).
+
+The longitudinal program consumes this repository's real C2/L2 frame but does not move Census transport or L10/L11/L12 ownership back into this repository. See `docs/LABOR_BRIDGE_SHADOW.md` for the historical anchor and the Poverty commissioning registry for its rerun triggers.
 
 ## Current command surface
 
