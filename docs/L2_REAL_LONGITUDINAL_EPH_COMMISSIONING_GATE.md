@@ -1,6 +1,6 @@
 # L2 — real 2017-Q1..2026-Q1 longitudinal EPH commissioning gate
 
-Status: local-data execution packet, 2026-09-29.
+Status: executed real-data gate, 2026-09-30. Release `eph-longitudinal-2017q1-2026q1-c155bb8f847a2f39` materialized with 37/37 quarters and 1,869,620 person-period rows. Midpoint monetary timing is frozen for bounded commissioning; the conversion parent remains candidate, so approved-mode scientific freeze is not claimed.
 
 ## Purpose
 
