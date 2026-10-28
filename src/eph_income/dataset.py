@@ -92,10 +92,6 @@ def validate_dataset_inputs(experiment_config: Mapping[str, Any]) -> dict[str, A
         "input_files": {year: str(path) for year, path in input_files.items()},
         "processed_dataset": str(processed_dataset),
         "metadata": str(metadata_path),
-        "source_identity": {
-            **source_identity,
-            "sidecar": str(identity_path) if identity_sidecar is not None else None,
-        },
     }
 
 
@@ -340,6 +336,10 @@ def build_modeling_dataset(
         "forbidden_predictor_check_passed": forbidden_check_passed,
         "processed_dataset": str(dataset_path),
         "metadata": str(metadata_path),
+        "source_identity": {
+            **source_identity,
+            "sidecar": str(identity_path) if identity_sidecar is not None else None,
+        },
     }
 
     if write:
