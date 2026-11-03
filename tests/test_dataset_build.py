@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from eph_income.config import load_feature_contract
-from eph_income.dataset import build_modeling_dataset
+from eph_income.dataset import build_modeling_dataset, validate_dataset_inputs
 
 INPUT_DIR = Path("data/annual_preprocessed_inputs")
 
@@ -25,6 +25,26 @@ def _add_missing_prop_case(sample: pd.DataFrame) -> pd.DataFrame:
     missing_prop_row["PROP"] = missing_prop_row["PROP"].astype("float64")
     missing_prop_row.loc[:, "PROP"] = np.nan
     return pd.concat([sample, missing_prop_row], ignore_index=True)
+
+
+def test_validate_dataset_inputs_is_read_only_and_reports_paths(tmp_path) -> None:
+    input_file = tmp_path / "annual.csv"
+    input_file.write_text("placeholder", encoding="utf-8")
+    output_dataset = tmp_path / "processed" / "modeling_dataset.parquet"
+    experiment_config = {
+        "data": {
+            "input_files": {"2024": str(input_file)},
+            "processed_dataset": str(output_dataset),
+        }
+    }
+
+    summary = validate_dataset_inputs(experiment_config)
+
+    assert summary == {
+        "input_files": {"2024": str(input_file.resolve())},
+        "processed_dataset": str(output_dataset.resolve()),
+        "metadata": str((output_dataset.parent / "dataset_metadata.json").resolve()),
+    }
 
 
 def test_build_modeling_dataset_filters_training_samples_and_writes_metadata(tmp_path) -> None:
@@ -139,6 +159,9 @@ def test_build_modeling_dataset_filters_training_samples_and_writes_metadata(tmp
     assert written_metadata["forbidden_predictor_check_passed"] is True
     assert written_metadata["input_artifact_type"] == "annual_preprocessed_eph_inputs"
     assert written_metadata["upstream_input_files"] == written_metadata["input_files"]
+    assert written_metadata["source_identity"]["status"] == "unavailable"
+    assert written_metadata["source_identity"]["exact_source_identity_available"] is False
+    assert written_metadata["source_identity"]["sidecar"] is None
 
 
 def test_second_stage_feature_engineering_constructs_required_features() -> None:
